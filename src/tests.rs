@@ -93,6 +93,17 @@ fn test_basic_functions() {
     //     println!("backward_connection: {:?}", connection);
     // }
 
+    graph.nodes_connection_create(2, 0, 352).unwrap();
+    let node2 = graph.node_get(2).unwrap();
+    let forwards = node2.connections_forward_get();
+    assert_eq!(forwards.len(), 1);
+    assert_eq!(forwards.get(&0).unwrap().data, 352);
+
+    graph.nodes_connection_delete(2, 0).unwrap();
+    let node2 = graph.node_get(2).unwrap();
+    let forwards = node2.connections_forward_get();
+    assert_eq!(forwards.len(), 0);
+
     graph.node_delete(2).unwrap();
     assert_eq!(graph.num_entries, 3);
     assert_eq!(graph.nodes_vector.len(), 4);
