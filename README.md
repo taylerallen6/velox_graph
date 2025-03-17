@@ -9,8 +9,7 @@ VeloxGraph is a high-performance embedded in-memory graph database designed for 
 ## Getting Started
 
 ### Example
-```
-
+```rust
 use velox_graph::VeloxGraph;
 
 // INFO: Sample data to store in the nodes.
