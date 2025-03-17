@@ -235,7 +235,7 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
         Ok(())
     }
 
-    pub fn nodes_connect_delete(
+    pub fn nodes_connection_delete(
         &mut self,
         first_node_id: usize,
         second_node_id: usize,
