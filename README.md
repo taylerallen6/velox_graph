@@ -1,9 +1,5 @@
 # velox_graph
 
-Simple overview of use/purpose.
-
-## Description
-
 VeloxGraph is a high-performance embedded in-memory graph database designed for a new type of AI models and custom neural networks. Optimized for real-time graph traversal and relationship mapping, it enables ultra-fast data access for AI inference, knowledge representation, and dynamic learning models. With a lightweight footprint and seamless integration, VeloxGraph accelerates graph-based computations in edge devices, robotics, and next-gen AI systems.
 
 ## Getting Started
