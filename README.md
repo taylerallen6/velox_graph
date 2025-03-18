@@ -1,10 +1,18 @@
 # VeloxGraph
 
-VeloxGraph is a high-performance embedded in-memory graph database designed for a new type of AI models and custom neural networks. Optimized for real-time graph traversal and relationship mapping, it enables ultra-fast data access for AI inference, knowledge representation, and dynamic learning models. With a lightweight footprint and seamless integration, VeloxGraph accelerates graph-based computations in edge devices, robotics, and next-gen AI systems.
+VeloxGraph is meant to be an extremely fast, efficient, low-level, in-memory, minimal graph database (wow, that is a mouth full). It is not revolutionary in its design but has a few key features that make it vital to the development of a new type of neural network architecture that I am working on, and THAT is what I consider revolutionary.
+
+## VeloxGraph vs traditional matrix representations:
+
+Much of the neural networks are designed around parallel processing. This is great for certain tasks, but for tasks that handle very sparse data, this can be a waste of processing power. Particularly, I am referring to sparsely connected networks, in which nodes may only have 10s or 100s of connections. For these calculations, even using a gpu will just slow it down. 
+
+I primarily wrote this code for use in a new type of neural network that I am working on that heavily relies on these types of connections. I focused on allowing very fast traversal of immediate connections, both forward (for triggering the next nodes) and backward (for looking up previous connections when deleting a node). These are some of the primary features that make this so useful to me.
+
+Matrix representations, on the other hand, are highly efficient (and the preferred option) when handling densely connected networks. The first two layers in my neural network are still very densely connected and, therefore, use matrices to represent the nodes and connections. But every layer after that use this VeloxGraph database for representing the mostly sparse connections.
 
 ## Getting Started
 
-### Example
+### Code Example
 ```rust
 use velox_graph::VeloxGraph;
 
@@ -84,3 +92,12 @@ fn main() {
     println!("num_entries: {}", graph.num_entries);
 }
 ```
+
+## Upcoming features and future plans:
+
+The next major feature that I am working on is implementing a fast way to back up or save the data. Currently, it is only stored in-memory and I have been using a separate system for persisting it to disk.
+
+I will most likely have to implement something similar to how other in-memory databases save data, by keeping a list of the transactions and recreating the database from that. But I still need to look into this more before deciding if it fits the needs of the rest of the project.
+
+As for visions for the future, I intend to keep this project as minimal as possible and build a new system of implementing neural networks off of it.
+
