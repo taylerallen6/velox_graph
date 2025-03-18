@@ -1,4 +1,4 @@
-# VeloxGraph
+![](assets/velox_graph_logo.png)
 
 VeloxGraph is meant to be an extremely fast, efficient, low-level, in-memory, minimal graph database (wow, that is a mouth full). It is not revolutionary in its design but has a few key features that make it vital to the development of a new type of neural network architecture that I am working on, and THAT is what I consider revolutionary.
 
@@ -60,13 +60,13 @@ fn main() {
         .nodes_connection_create(node_id0, node_id1, ConnData { a: 243, b: 54.5 })
         .unwrap();
     graph
-        .nodes_connection_create(node_id0, node_id2, ConnData { a: 84, b: 9.413 })
+        .nodes_connection_create(node_id0, node_id2, ConnData { a: 63, b: 9.413 })
         .unwrap();
     graph
-        .nodes_connection_create(node_id1, node_id2, ConnData { a: 84, b: 9.413 })
+        .nodes_connection_create(node_id1, node_id2, ConnData { a: 2834, b: 5.24 })
         .unwrap();
     graph
-        .nodes_connection_create(node_id2, node_id0, ConnData { a: 84, b: 9.413 })
+        .nodes_connection_create(node_id2, node_id0, ConnData { a: 7, b: 463.62 })
         .unwrap();
 
     // INFO: Loop through each connection that this node connects forward to (forward connections). You can NOT edit the connections.
