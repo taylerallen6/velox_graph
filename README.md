@@ -1,4 +1,4 @@
-![](assets/velox_graph_logo.png)
+# ![](assets/velox_graph_logo.png)
 
 VeloxGraph is meant to be an extremely fast, efficient, low-level, in-memory, minimal graph database (wow, that is a mouth full). It is not revolutionary in its design but has a few key features that make it vital to the development of a new type of neural network architecture that I am working on, and THAT is what I consider revolutionary.
 
