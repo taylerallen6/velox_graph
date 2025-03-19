@@ -1,4 +1,10 @@
+//! # ![](../assets/velox_graph_logo.png)
+//!
 //! # VeloxGraph
+//!
+//! [![Crates.io](https://img.shields.io/crates/v/velox_graph.svg)](https://crates.io/crates/velox_graph)
+//! [![Apache2.0 licensed](https://img.shields.io/badge/license-Apache2.0-blue.svg)](https://github.com/taylerallen6/velox_graph/blob/main/LICENSE)
+//! [![Documentation](https://docs.rs/velox_graph/badge.svg)](https://docs.rs/velox_graph)
 //!
 //! VeloxGraph is an extremely fast, efficient, low-level, in-memory, minimal graph database (wow, that is a mouth full). It is not revolutionary in its design but has a few key features that make it vital to the development of a new type of neural network architecture that I am working on, and THAT is what I consider revolutionary.
 //!

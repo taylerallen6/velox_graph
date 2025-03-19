@@ -1,5 +1,9 @@
 # ![](assets/velox_graph_logo.png)
 
+[![Crates.io](https://img.shields.io/crates/v/velox_graph.svg)](https://crates.io/crates/velox_graph)
+[![Apache2.0 licensed](https://img.shields.io/badge/license-Apache2.0-blue.svg)](https://github.com/taylerallen6/velox_graph/blob/main/LICENSE)
+[![Documentation](https://docs.rs/velox_graph/badge.svg)](https://docs.rs/velox_graph)
+
 VeloxGraph is an extremely fast, efficient, low-level, in-memory, minimal graph database (wow, that is a mouth full). It is not revolutionary in its design but has a few key features that make it vital to the development of a new type of neural network architecture that I am working on, and THAT is what I consider revolutionary.
 
 ## VeloxGraph vs traditional matrix representations:
@@ -11,6 +15,14 @@ I primarily wrote this code for use in a new type of neural network that I am wo
 Matrix representations, on the other hand, are highly efficient (and the preferred option) when handling densely connected networks. The first two layers in my neural network are still very densely connected and, therefore, use matrices to represent the nodes and connections. But every layer after that use this VeloxGraph database for representing the mostly sparse connections.
 
 ## Getting Started
+
+### Install
+
+Add this to your Cargo.toml file in your rust project:
+```toml
+[dependencies]
+velox_graph = "0.1.0"
+```
 
 ### Basic Code Example
 ```rust
