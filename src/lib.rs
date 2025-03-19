@@ -1,3 +1,111 @@
+//! # VeloxGraph
+//!
+//! VeloxGraph is an extremely fast, efficient, low-level, in-memory, minimal graph database (wow, that is a mouth full). It is not revolutionary in its design but has a few key features that make it vital to the development of a new type of neural network architecture that I am working on, and THAT is what I consider revolutionary.
+//!
+//! ### Basic Code Example
+//! ```rust
+//! use velox_graph::VeloxGraph;
+//!
+//! fn main() {
+//!     // INFO: Initialize the graph.
+//!     let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+//!
+//!     // INFO: Create your first nodes.
+//!     let node_id0 = graph.node_create(634);
+//!     let node_id1 = graph.node_create(43);
+//!
+//!     // INFO: Create connection from node0 to node1.
+//!     graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+//!
+//!     // INFO: Get a mutable reference to that node.
+//!     let node0 = graph.node_get(node_id0).unwrap();
+//!
+//!     println!("node0 data: {:?}", node0.data);
+//!     println!("node0 connections: {:?}", node0.connections_forward_get());
+//! }
+//! ```
+//!
+//! ### More Complex Code Example
+//! ```rust
+//! use velox_graph::VeloxGraph;
+//!
+//! // INFO: Sample data to store in the nodes.
+//! #[derive(Clone, Debug)]
+//! struct NodeData {
+//!     x: u32,
+//!     y: u32,
+//! }
+//!
+//! // INFO: Sample data to store in the connections.
+//! #[derive(Clone, Debug)]
+//! struct ConnData {
+//!     a: u32,
+//!     b: f64,
+//! }
+//!
+//! fn main() {
+//!     // INFO: Initialize the graph.
+//!     let mut graph: VeloxGraph<NodeData, ConnData> = VeloxGraph::new();
+//!
+//!     // INFO: Create your first node.
+//!     let node_id0 = graph.node_create(NodeData { x: 134, y: 351 });
+//!     println!("num_entries: {}", graph.num_entries);
+//!
+//!     // INFO: Get a mutable reference to that node.
+//!     let node = graph.node_get(node_id0).unwrap();
+//!     println!("node data: {:?}", node.data);
+//!
+//!     // INFO: You can then edit that node in place. Remember this a mutable reference, no need to save.
+//!     node.data.x += 4;
+//!     node.data.y = 2431;
+//!
+//!     // INFO: You can get the node again if you want to verify that it was edited.
+//!     let node = graph.node_get(node_id0).unwrap();
+//!     println!("node data: {:?}", node.data);
+//!
+//!     // INFO: Create 2 more nodes.
+//!     let node_id1 = graph.node_create(NodeData { x: 234, y: 5 });
+//!     let node_id2 = graph.node_create(NodeData { x: 63, y: 42 });
+//!     println!("num_entries: {}", graph.num_entries);
+//!
+//!     // INFO: Create connections some connections between nodes.
+//!     graph
+//!         .nodes_connection_create(node_id0, node_id1, ConnData { a: 243, b: 54.5 })
+//!         .unwrap();
+//!     graph
+//!         .nodes_connection_create(node_id0, node_id2, ConnData { a: 63, b: 9.413 })
+//!         .unwrap();
+//!     graph
+//!         .nodes_connection_create(node_id1, node_id2, ConnData { a: 2834, b: 5.24 })
+//!         .unwrap();
+//!     graph
+//!         .nodes_connection_create(node_id2, node_id0, ConnData { a: 7, b: 463.62 })
+//!         .unwrap();
+//!
+//!     // INFO: Loop through each connection that this node connects forward to (forward connections). You can NOT edit the connections.
+//!     let node = graph.node_get(node_id0).unwrap();
+//!     for connection in node.connections_forward_get().values() {
+//!         println!("forward_connection: {:?}", connection);
+//!     }
+//!
+//!     // INFO: You can also see the what nodes the TO this node (backward connections). You can NOT edit the connections.
+//!     let node2 = graph.node_get(node_id2).unwrap();
+//!     for connection in node2.connections_backward_get() {
+//!         println!("backward_connection: {:?}", connection);
+//!     }
+//!
+//!     // INFO: Delete node connections.
+//!     graph.nodes_connection_delete(node_id0, node_id1).unwrap();
+//!     graph.nodes_connection_delete(node_id0, node_id2).unwrap();
+//!
+//!     // INFO: Delete nodes. Their connections are automatically deleted as well.
+//!     graph.node_delete(0).unwrap();
+//!     graph.node_delete(1).unwrap();
+//!     graph.node_delete(2).unwrap();
+//!     println!("num_entries: {}", graph.num_entries);
+//! }
+//! ```
+
 pub mod tests;
 
 use serde::{Deserialize, Serialize};
@@ -63,13 +171,13 @@ pub struct Node<NodeT: Clone, ConnectionT: Clone> {
 }
 
 #[derive(Clone)]
-pub struct NodeOption<NodeT: Clone, ConnectionT: Clone> {
+struct NodeOption<NodeT: Clone, ConnectionT: Clone> {
     is_used: bool,
     node: Node<NodeT, ConnectionT>,
 }
 
 impl<NodeT: Clone, ConnectionT: Clone> Node<NodeT, ConnectionT> {
-    pub fn new(node_id: usize, node_data: NodeT) -> Node<NodeT, ConnectionT> {
+    fn new(node_id: usize, node_data: NodeT) -> Node<NodeT, ConnectionT> {
         Node {
             node_id,
             data: node_data,
@@ -78,10 +186,58 @@ impl<NodeT: Clone, ConnectionT: Clone> Node<NodeT, ConnectionT> {
         }
     }
 
+    /// Get immutable access to a node's FORWARD connections.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Initialize the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    ///
+    /// // INFO: Create example nodes.
+    /// let node_id0 = graph.node_create(634);
+    /// let node_id1 = graph.node_create(43);
+    ///
+    /// // INFO: Create connection from node0 to node1.
+    /// graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+    ///
+    /// // INFO: Get a mutable reference to that node.
+    /// let node0 = graph.node_get(node_id0).unwrap();
+    ///
+    /// // INFO: Get a immutable reference to that node's forward connections.
+    /// let forward_connections = node0.connections_forward_get();
+    /// let connection = forward_connections.get(node_id1).unwrap();
+    ///
+    /// assert_eq!(connection.data, 5.24);
+    /// ```
     pub fn connections_forward_get<'a>(&'a self) -> &'a HashMap<usize, Connection<ConnectionT>> {
         &self.connections_forward
     }
 
+    /// Get immutable access to a node's FORWARD connections.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Initialize the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    ///
+    /// // INFO: Create example nodes.
+    /// let node_id0 = graph.node_create(634);
+    /// let node_id1 = graph.node_create(43);
+    ///
+    /// // INFO: Create connection from node0 to node1.
+    /// graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+    ///
+    /// // INFO: Get a mutable reference to that node.
+    /// let node1 = graph.node_get(node_id1).unwrap();
+    ///
+    /// // INFO: Get a immutable reference to that node's backward connections.
+    /// let backward_connections = node1.connections_backward_get();
+    /// let does_connection_exist = backward_connections.contains(node_id0);
+    ///
+    /// assert_eq!(does_connection_exist, true);
+    /// ```
     pub fn connections_backward_get<'a>(&'a self) -> &'a HashSet<usize> {
         &self.connections_backward
     }
@@ -137,6 +293,29 @@ pub struct VeloxGraph<NodeT: Clone, ConnectionT: Clone> {
 }
 
 impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
+    /// Initialize the graph.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Sample data to store in the nodes. This is CUSTOM DATA defined by you that is stored in each node.
+    /// #[derive(Clone, Debug)]
+    /// struct NodeData {
+    ///     x: u32,
+    ///     y: u32,
+    /// }
+    ///
+    /// // INFO: Sample data to store in the connections. This is CUSTOM DATA defined by you that is stored in each connection.
+    /// #[derive(Clone, Debug)]
+    /// struct ConnData {
+    ///     a: u32,
+    ///     b: f64,
+    /// }
+    ///
+    /// // INFO: Initialize the graph with types NodeData, for nodes, and ConnData, for connections.
+    /// let mut graph: VeloxGraph<NodeData, ConnData> = VeloxGraph::new();
+    /// assert_eq!(graph.num_entries, 0);
+    /// ```
     pub fn new() -> VeloxGraph<NodeT, ConnectionT> {
         let settings = VeloxGraghSettings::new();
 
@@ -148,6 +327,20 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
         }
     }
 
+    /// Create nodes.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Initialize the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    ///
+    /// // INFO: Create your first nodes.
+    /// let node_id0 = graph.node_create(634);
+    /// let node_id1 = graph.node_create(43);
+    ///
+    /// assert_eq!(graph.num_entries, 2);
+    /// ```
     pub fn node_create(&mut self, node_data: NodeT) -> usize {
         let new_node_option = NodeOption {
             is_used: SLOT_USED,
@@ -172,6 +365,27 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
         new_node_id
     }
 
+    /// Get mutable access to a node.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Initialize the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    ///
+    /// // INFO: Create a node.
+    /// let node_id = graph.node_create(4);
+    ///
+    /// // INFO: Get a mutable reference to that node.
+    /// let node = graph.node_get(node_id).unwrap();
+    ///
+    /// assert_eq!(node.data, 4);
+    ///
+    /// // INFO: Make changes to the node.
+    /// node.data += 5
+    ///
+    /// assert_eq!(node.data, 9);
+    /// ```
     pub fn node_get<'a>(
         &'a mut self,
         node_id: usize,
@@ -189,6 +403,23 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
         Ok(&mut node_option.node)
     }
 
+    /// Delete nodes.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Initialize the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    ///
+    /// // INFO: Create a node.
+    /// let node_id = graph.node_create(634);
+    /// assert_eq!(graph.num_entries, 1);
+    ///
+    /// // INFO: Delete the node. Its connections are automatically deleted as well.
+    /// graph.node_delete(node_id).unwrap();
+    ///
+    /// assert_eq!(graph.num_entries, 0);
+    /// ```
     pub fn node_delete(&mut self, node_id_to_delete: usize) -> Result<(), VeloxGraphError> {
         let node_to_delete = self.node_get(node_id_to_delete)?.clone();
 
@@ -217,6 +448,26 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
         Ok(())
     }
 
+    /// Create node connections.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Initialize the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    ///
+    /// // INFO: Create example nodes.
+    /// let node_id0 = graph.node_create(634);
+    /// let node_id1 = graph.node_create(43);
+    ///
+    /// // INFO: Create connection from node0 to node1.
+    /// graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+    ///
+    /// // INFO: Get a mutable reference to that node.
+    /// let node0 = graph.node_get(node_id0).unwrap();
+    ///
+    /// assert_eq!(node0.connections_forward_get().len(), 1);
+    /// ```
     pub fn nodes_connection_create(
         &mut self,
         first_node_id: usize,
@@ -235,6 +486,30 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
         Ok(())
     }
 
+    /// Delete node connections.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Initialize the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    ///
+    /// // INFO: Create example nodes.
+    /// let node_id0 = graph.node_create(634);
+    /// let node_id1 = graph.node_create(43);
+    ///
+    /// // INFO: Create connection from node0 to node1.
+    /// graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+    ///
+    /// // INFO: Get a mutable reference to that node.
+    /// let node0 = graph.node_get(node_id0).unwrap();
+    /// assert_eq!(node0.connections_forward_get().len(), 1);
+    ///
+    /// // INFO: Delete node connection.
+    /// graph.nodes_connection_delete(node_id0, node_id1).unwrap();
+    ///
+    /// assert_eq!(node0.connections_forward_get().len(), 0);
+    /// ```
     pub fn nodes_connection_delete(
         &mut self,
         first_node_id: usize,

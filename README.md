@@ -20,7 +20,7 @@ fn main() {
     // INFO: Initialize the graph.
     let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
 
-    // INFO: Create your first node.
+    // INFO: Create your first nodes.
     let node_id0 = graph.node_create(634);
     let node_id1 = graph.node_create(43);
 
