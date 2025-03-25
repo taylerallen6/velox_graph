@@ -21,13 +21,13 @@
 //!     let node_id1 = graph.node_create(43);
 //!
 //!     // INFO: Create connection from node0 to node1.
-//!     graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+//!     graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
 //!
 //!     // INFO: Get a mutable reference to that node.
 //!     let node0 = graph.node_get(node_id0).unwrap();
 //!
 //!     println!("node0 data: {:?}", node0.data);
-//!     println!("node0 connections: {:?}", node0.connections_forward_get());
+//!     println!("node0 connections: {:?}", &node0.connections_forward_get_all().data_vec);
 //! }
 //! ```
 //!
@@ -76,33 +76,33 @@
 //!
 //!     // INFO: Create connections some connections between nodes.
 //!     graph
-//!         .nodes_connection_create(node_id0, node_id1, ConnData { a: 243, b: 54.5 })
+//!         .nodes_connection_set(node_id0, node_id1, ConnData { a: 243, b: 54.5 })
 //!         .unwrap();
 //!     graph
-//!         .nodes_connection_create(node_id0, node_id2, ConnData { a: 63, b: 9.413 })
+//!         .nodes_connection_set(node_id0, node_id2, ConnData { a: 63, b: 9.413 })
 //!         .unwrap();
 //!     graph
-//!         .nodes_connection_create(node_id1, node_id2, ConnData { a: 2834, b: 5.24 })
+//!         .nodes_connection_set(node_id1, node_id2, ConnData { a: 2834, b: 5.24 })
 //!         .unwrap();
 //!     graph
-//!         .nodes_connection_create(node_id2, node_id0, ConnData { a: 7, b: 463.62 })
+//!         .nodes_connection_set(node_id2, node_id0, ConnData { a: 7, b: 463.62 })
 //!         .unwrap();
 //!
 //!     // INFO: Loop through each connection that this node connects forward to (forward connections). You can NOT edit the connections.
 //!     let node = graph.node_get(node_id0).unwrap();
-//!     for connection in node.connections_forward_get().values() {
+//!     for connection in &node.connections_forward_get_all().data_vec {
 //!         println!("forward_connection: {:?}", connection);
 //!     }
 //!
 //!     // INFO: You can also see the what nodes the TO this node (backward connections). You can NOT edit the connections.
 //!     let node2 = graph.node_get(node_id2).unwrap();
-//!     for connection in node2.connections_backward_get() {
+//!     for connection in node2.connections_backward_get_all() {
 //!         println!("backward_connection: {:?}", connection);
 //!     }
 //!
 //!     // INFO: Delete node connections.
-//!     graph.nodes_connection_delete(node_id0, node_id1).unwrap();
-//!     graph.nodes_connection_delete(node_id0, node_id2).unwrap();
+//!     graph.nodes_connection_remove(node_id0, node_id1).unwrap();
+//!     graph.nodes_connection_remove(node_id0, node_id2).unwrap();
 //!
 //!     // INFO: Delete nodes. Their connections are automatically deleted as well.
 //!     graph.node_delete(0).unwrap();
@@ -137,6 +137,8 @@ pub enum VeloxGraphError {
     SlotNotAllocated(usize),
     #[error("database: Slot {0} is not used. No data here. Slot should already be in empty_slots vector. You cannot access, update, or remove a slot that is not in use.")]
     SlotNotUsed(usize),
+    #[error("database: Connection {0} is not set. No data here.")]
+    ConnectionNotSet(usize),
 
     #[error("unknown database error")]
     Unknown,
@@ -167,12 +169,63 @@ pub struct Connection<ConnectionT: Clone> {
     pub data: ConnectionT,
 }
 
+#[derive(Clone, Debug)]
+pub struct ConnectionsForward<ConnectionT: Clone> {
+    pub lookup_hash: HashMap<usize, usize>,
+    pub data_vec: Vec<Connection<ConnectionT>>,
+}
+
+impl<ConnectionT: Clone> ConnectionsForward<ConnectionT> {
+    fn new() -> ConnectionsForward<ConnectionT> {
+        ConnectionsForward {
+            lookup_hash: HashMap::new(),
+            data_vec: Vec::new(),
+        }
+    }
+
+    /// Get immutable access to a ONE FORWARD connection
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Initialize the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    ///
+    /// // INFO: Create example nodes.
+    /// let node_id0 = graph.node_create(634);
+    /// let node_id1 = graph.node_create(43);
+    ///
+    /// // INFO: Create connection from node0 to node1.
+    /// graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
+    ///
+    /// // INFO: Get a mutable reference to that node.
+    /// let node0 = graph.node_get(node_id0).unwrap();
+    ///
+    /// // INFO: Get a immutable reference to that node's forward connections.
+    /// let forward_connections = node0.connections_forward_get_all();
+    ///
+    /// // INFO: Get a immutable reference to one connection.
+    /// let connection = forward_connections.get(node_id1).unwrap();
+    ///
+    /// assert_eq!(connection.data, 5.24);
+    /// ```
+    pub fn get<'a>(
+        &'a self,
+        node_id: usize,
+    ) -> Result<&'a Connection<ConnectionT>, VeloxGraphError> {
+        match self.lookup_hash.get(&node_id) {
+            Some(&connection_index) => Ok(&self.data_vec[connection_index]),
+            None => Err(VeloxGraphError::ConnectionNotSet(node_id)),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Node<NodeT: Clone, ConnectionT: Clone> {
     node_id: usize,
     pub data: NodeT,
 
-    connections_forward: HashMap<usize, Connection<ConnectionT>>,
+    connections_forward: ConnectionsForward<ConnectionT>,
     connections_backward: HashSet<usize>,
 }
 
@@ -187,7 +240,7 @@ impl<NodeT: Clone, ConnectionT: Clone> Node<NodeT, ConnectionT> {
         Node {
             node_id,
             data: node_data,
-            connections_forward: HashMap::new(),
+            connections_forward: ConnectionsForward::new(),
             connections_backward: HashSet::new(),
         }
     }
@@ -205,18 +258,18 @@ impl<NodeT: Clone, ConnectionT: Clone> Node<NodeT, ConnectionT> {
     /// let node_id1 = graph.node_create(43);
     ///
     /// // INFO: Create connection from node0 to node1.
-    /// graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+    /// graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
     ///
     /// // INFO: Get a mutable reference to that node.
     /// let node0 = graph.node_get(node_id0).unwrap();
     ///
     /// // INFO: Get a immutable reference to that node's forward connections.
-    /// let forward_connections = node0.connections_forward_get();
+    /// let forward_connections = node0.connections_forward_get_all();
     /// let connection = forward_connections.get(node_id1).unwrap();
     ///
     /// assert_eq!(connection.data, 5.24);
     /// ```
-    pub fn connections_forward_get<'a>(&'a self) -> &'a HashMap<usize, Connection<ConnectionT>> {
+    pub fn connections_forward_get_all<'a>(&'a self) -> &'a ConnectionsForward<ConnectionT> {
         &self.connections_forward
     }
 
@@ -233,42 +286,85 @@ impl<NodeT: Clone, ConnectionT: Clone> Node<NodeT, ConnectionT> {
     /// let node_id1 = graph.node_create(43);
     ///
     /// // INFO: Create connection from node0 to node1.
-    /// graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+    /// graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
     ///
     /// // INFO: Get a mutable reference to that node.
     /// let node1 = graph.node_get(node_id1).unwrap();
     ///
     /// // INFO: Get a immutable reference to that node's backward connections.
-    /// let backward_connections = node1.connections_backward_get();
+    /// let backward_connections = node1.connections_backward_get_all();
     /// let does_connection_exist = backward_connections.contains(node_id0);
     ///
     /// assert_eq!(does_connection_exist, true);
     /// ```
-    pub fn connections_backward_get<'a>(&'a self) -> &'a HashSet<usize> {
+    pub fn connections_backward_get_all<'a>(&'a self) -> &'a HashSet<usize> {
         &self.connections_backward
     }
 
-    fn connection_forward_create(&mut self, node_id_value: usize, connection_data: ConnectionT) {
-        let new_connection = Connection {
-            node_id: node_id_value,
-            data: connection_data,
-        };
-
-        self.connections_forward
-            .insert(node_id_value, new_connection);
-    }
-
-    fn connection_forward_delete(&mut self, node_id_value: usize) {
-        //self.connections_forward.remove(&node_id_value);
-
-        match self.connections_forward.get(&node_id_value) {
-            Some(_connection_val) => {
-                self.connections_forward.remove(&node_id_value);
+    fn connection_forward_set(&mut self, node_id_value: usize, connection_data: ConnectionT) {
+        match self.connections_forward.lookup_hash.get(&node_id_value) {
+            Some(&connection_index) => {
+                let connection = &mut self.connections_forward.data_vec[connection_index];
+                connection.data = connection_data;
             }
-            //None => println!("forward connection already not there."),
-            None => (),
-        };
+            None => {
+                let new_connection = Connection {
+                    node_id: node_id_value,
+                    data: connection_data,
+                };
+
+                self.connections_forward.data_vec.push(new_connection);
+
+                let new_connection_index = self.connections_forward.data_vec.len() - 1;
+                self.connections_forward
+                    .lookup_hash
+                    .insert(node_id_value, new_connection_index);
+            }
+        }
     }
+
+    fn connection_forward_remove(&mut self, node_id_value: usize) {
+        //self.connections_forward.remove(&node_id_value);
+        let data_vec_len = self.connections_forward.data_vec.len();
+
+        if data_vec_len == 1 {
+            if let Some(&connection_index) =
+                self.connections_forward.lookup_hash.get(&node_id_value)
+            {
+                self.connections_forward.data_vec.remove(connection_index);
+                self.connections_forward.lookup_hash.remove(&node_id_value);
+            }
+
+            return;
+        }
+
+        if let Some(&connection_index) = self.connections_forward.lookup_hash.get(&node_id_value) {
+            if data_vec_len == 1 || connection_index == data_vec_len - 1 {
+                if let Some(&connection_index) =
+                    self.connections_forward.lookup_hash.get(&node_id_value)
+                {
+                    self.connections_forward.data_vec.remove(connection_index);
+                    self.connections_forward.lookup_hash.remove(&node_id_value);
+                }
+
+                return;
+            }
+
+            // INFO: ELSE, DO THIS
+            self.connections_forward
+                .data_vec
+                .swap_remove(connection_index);
+
+            let connection = &self.connections_forward.data_vec[connection_index];
+
+            self.connections_forward
+                .lookup_hash
+                .insert(connection.node_id, connection_index);
+
+            self.connections_forward.lookup_hash.remove(&node_id_value);
+        }
+    }
+
     fn connection_backward_create(&mut self, node_id_value: usize) {
         self.connections_backward.insert(node_id_value);
     }
@@ -436,20 +532,30 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
             .for_each(|&connection_node_id| {
                 // let node = &mut self.nodes_vector[*connection_node_id].node;
                 let node = self.node_get(connection_node_id).unwrap();
-                node.connection_forward_delete(node_id_to_delete);
+                node.connection_forward_remove(node_id_to_delete);
             });
 
         node_to_delete
             .connections_forward
+            .data_vec
             // .clone()
-            .keys()
-            .for_each(|&connection_node_id| {
+            .iter()
+            .for_each(|connection| {
                 // let node = &mut self.nodes_vector[*connection_node_id].node;
-                let node = self.node_get(connection_node_id).unwrap();
+                let node = self.node_get(connection.node_id).unwrap();
                 node.connection_backward_delete(node_id_to_delete);
             });
 
-        self.empty_slots.push(node_id_to_delete);
+        match node_id_to_delete == self.nodes_vector.len() - 1 {
+            true => {
+                self.nodes_vector.pop();
+            }
+            false => {
+                self.empty_slots.push(node_id_to_delete);
+                self.nodes_vector[node_id_to_delete].is_used = SLOT_NOT_USED;
+            }
+        }
+
         self.num_entries -= 1;
         Ok(())
     }
@@ -467,14 +573,14 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
     /// let node_id1 = graph.node_create(43);
     ///
     /// // INFO: Create connection from node0 to node1.
-    /// graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+    /// graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
     ///
     /// // INFO: Get a mutable reference to that node.
     /// let node0 = graph.node_get(node_id0).unwrap();
     ///
-    /// assert_eq!(node0.connections_forward_get().len(), 1);
+    /// assert_eq!(node0.connections_forward_get_all().data_vec.len(), 1);
     /// ```
-    pub fn nodes_connection_create(
+    pub fn nodes_connection_set(
         &mut self,
         first_node_id: usize,
         second_node_id: usize,
@@ -484,7 +590,7 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
         let _second_node = self.node_get(second_node_id)?;
         let first_node = self.node_get(first_node_id)?;
 
-        first_node.connection_forward_create(second_node_id, connection_data);
+        first_node.connection_forward_set(second_node_id, connection_data);
 
         let second_node = self.node_get(second_node_id)?;
         second_node.connection_backward_create(first_node_id);
@@ -505,18 +611,18 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
     /// let node_id1 = graph.node_create(43);
     ///
     /// // INFO: Create connection from node0 to node1.
-    /// graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+    /// graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
     ///
     /// // INFO: Get a mutable reference to that node.
     /// let node0 = graph.node_get(node_id0).unwrap();
-    /// assert_eq!(node0.connections_forward_get().len(), 1);
+    /// assert_eq!(node0.connections_forward_get_all().data_vec.len(), 1);
     ///
     /// // INFO: Delete node connection.
-    /// graph.nodes_connection_delete(node_id0, node_id1).unwrap();
+    /// graph.nodes_connection_remove(node_id0, node_id1).unwrap();
     ///
-    /// assert_eq!(node0.connections_forward_get().len(), 0);
+    /// assert_eq!(node0.connections_forward_get_all().data_vec.len(), 0);
     /// ```
-    pub fn nodes_connection_delete(
+    pub fn nodes_connection_remove(
         &mut self,
         first_node_id: usize,
         second_node_id: usize,
@@ -525,7 +631,7 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
         let _second_node = self.node_get(second_node_id)?;
         let first_node = self.node_get(first_node_id)?;
 
-        first_node.connection_forward_delete(second_node_id);
+        first_node.connection_forward_remove(second_node_id);
 
         let second_node = self.node_get(second_node_id)?;
         second_node.connection_backward_delete(first_node_id);

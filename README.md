@@ -37,13 +37,13 @@ fn main() {
     let node_id1 = graph.node_create(43);
 
     // INFO: Create connection from node0 to node1.
-    graph.nodes_connection_create(node_id0, node_id1, 5.24).unwrap();
+    graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
 
     // INFO: Get a mutable reference to that node.
     let node0 = graph.node_get(node_id0).unwrap();
 
     println!("node0 data: {:?}", node0.data);
-    println!("node0 connections: {:?}", node0.connections_forward_get());
+    println!("node0 connections: {:?}", &node0.connections_forward_get_all().data_vec);
 }
 ```
 
@@ -92,33 +92,33 @@ fn main() {
 
     // INFO: Create connections some connections between nodes.
     graph
-        .nodes_connection_create(node_id0, node_id1, ConnData { a: 243, b: 54.5 })
+        .nodes_connection_set(node_id0, node_id1, ConnData { a: 243, b: 54.5 })
         .unwrap();
     graph
-        .nodes_connection_create(node_id0, node_id2, ConnData { a: 63, b: 9.413 })
+        .nodes_connection_set(node_id0, node_id2, ConnData { a: 63, b: 9.413 })
         .unwrap();
     graph
-        .nodes_connection_create(node_id1, node_id2, ConnData { a: 2834, b: 5.24 })
+        .nodes_connection_set(node_id1, node_id2, ConnData { a: 2834, b: 5.24 })
         .unwrap();
     graph
-        .nodes_connection_create(node_id2, node_id0, ConnData { a: 7, b: 463.62 })
+        .nodes_connection_set(node_id2, node_id0, ConnData { a: 7, b: 463.62 })
         .unwrap();
 
     // INFO: Loop through each connection that this node connects forward to (forward connections). You can NOT edit the connections.
     let node = graph.node_get(node_id0).unwrap();
-    for connection in node.connections_forward_get().values() {
+    for connection in &node.connections_forward_get_all().data_vec {
         println!("forward_connection: {:?}", connection);
     }
 
     // INFO: You can also see the what nodes the TO this node (backward connections). You can NOT edit the connections.
     let node2 = graph.node_get(node_id2).unwrap();
-    for connection in node2.connections_backward_get() {
+    for connection in node2.connections_backward_get_all() {
         println!("backward_connection: {:?}", connection);
     }
 
     // INFO: Delete node connections.
-    graph.nodes_connection_delete(node_id0, node_id1).unwrap();
-    graph.nodes_connection_delete(node_id0, node_id2).unwrap();
+    graph.nodes_connection_remove(node_id0, node_id1).unwrap();
+    graph.nodes_connection_remove(node_id0, node_id2).unwrap();
 
     // INFO: Delete nodes. Their connections are automatically deleted as well.
     graph.node_delete(0).unwrap();
