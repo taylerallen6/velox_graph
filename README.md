@@ -21,7 +21,7 @@ Matrix representations, on the other hand, are highly efficient (and the preferr
 Add this to your Cargo.toml file in your rust project:
 ```toml
 [dependencies]
-velox_graph = "0.1.0"
+velox_graph = "1.0.0"
 ```
 
 ### Basic Code Example
