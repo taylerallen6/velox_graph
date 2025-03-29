@@ -21,7 +21,7 @@ Matrix representations, on the other hand, are highly efficient (and the preferr
 Add this to your Cargo.toml file in your rust project:
 ```toml
 [dependencies]
-velox_graph = "1.0.0"
+velox_graph = "2.0.0"
 ```
 
 ### Basic Code Example
@@ -47,19 +47,47 @@ fn main() {
 }
 ```
 
-### More Complex Code Example
+### Save and Load Example
 ```rust
 use velox_graph::VeloxGraph;
 
+fn main() {
+    // INFO: Initialize the graph with data.
+    let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    let node_id0 = graph.node_create(634);
+    let node_id1 = graph.node_create(43);
+    graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
+    println!("num_entries {}", graph.num_entries);
+
+    // INFO: Save the graph to file of your choice.
+    let file_path = "some_file.vg".to_string();
+    graph.save(file_path).unwrap();
+    
+    // INFO: Load the graph back from file.
+    let mut loaded_graph: VeloxGraph<u32, f64> = VeloxGraph::load(file_path).unwrap();
+    println!("num_entries {}", loaded_graph.num_entries);
+
+    // INFO: Get a mutable reference to that node.
+    let node0 = loaded_graph.node_get(node_id0).unwrap();
+    println!("node0 data: {:?}", node0.data);
+    println!("node0 connections: {:?}", &node0.connections_forward_get_all().data_vec);
+}
+```
+
+### More Complex Code Example
+```rust
+use velox_graph::VeloxGraph;
+use bincode::{Decode, Encode};
+
 // INFO: Sample data to store in the nodes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Encode, Decode)]
 struct NodeData {
     x: u32,
     y: u32,
 }
 
 // INFO: Sample data to store in the connections.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Encode, Decode)]
 struct ConnData {
     a: u32,
     b: f64,
