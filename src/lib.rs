@@ -8,6 +8,14 @@
 //!
 //! VeloxGraph is an extremely fast, efficient, low-level, in-memory, minimal graph database (wow, that is a mouth full). It is not revolutionary in its design but has a few key features that make it vital to the development of a new type of neural network architecture that I am working on, and THAT is what I consider revolutionary.
 //!
+//! ### Install
+//!
+//! Add this to your Cargo.toml file in your rust project:
+//! ```toml
+//! [dependencies]
+//! velox_graph = "2.0.0"
+//! ```
+//!
 //! ### Basic Code Example
 //! ```rust
 //! use velox_graph::VeloxGraph;
@@ -31,19 +39,47 @@
 //! }
 //! ```
 //!
-//! ### More Complex Code Example
+//! ### Save and Load Example
 //! ```rust
 //! use velox_graph::VeloxGraph;
 //!
+//! fn main() {
+//!     // INFO: Initialize the graph with data.
+//!     let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+//!     let node_id0 = graph.node_create(634);
+//!     let node_id1 = graph.node_create(43);
+//!     graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
+//!     println!("num_entries {}", graph.num_entries);
+//!
+//!     // INFO: Save the graph to file of your choice.
+//!     let file_path = "some_file.vg".to_string();
+//!     graph.save(file_path).unwrap();
+//!     
+//!     // INFO: Load the graph back from file.
+//!     let mut loaded_graph: VeloxGraph<u32, f64> = VeloxGraph::load(file_path).unwrap();
+//!     println!("num_entries {}", loaded_graph.num_entries);
+//!
+//!     // INFO: Get a mutable reference to that node.
+//!     let node0 = loaded_graph.node_get(node_id0).unwrap();
+//!     println!("node0 data: {:?}", node0.data);
+//!     println!("node0 connections: {:?}", &node0.connections_forward_get_all().data_vec);
+//! }
+//! ```
+//!
+//! ### More Complex Code Example
+//! ```rust
+//! use velox_graph::VeloxGraph;
+//! use bincode::{Decode, Encode};
+//!
 //! // INFO: Sample data to store in the nodes.
-//! #[derive(Clone, Debug)]
+//! #[derive(Clone, Debug, Encode, Decode)]
 //! struct NodeData {
 //!     x: u32,
 //!     y: u32,
 //! }
 //!
 //! // INFO: Sample data to store in the connections.
-//! #[derive(Clone, Debug)]
+//! #[derive(Clone, Debug, Encode, Decode)]
 //! struct ConnData {
 //!     a: u32,
 //!     b: f64,
@@ -114,11 +150,15 @@
 
 pub mod tests;
 
+use bincode::{config, Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::io;
 use std::result::Result::Err;
 use thiserror::Error;
+
+use std::fs::File;
+use std::io::{self, LineWriter, Write};
+use std::os::unix::prelude::FileExt;
 
 #[derive(Error, Debug)]
 pub enum VeloxGraphError {
@@ -130,6 +170,10 @@ pub enum VeloxGraphError {
     TomlDeserializeError(#[from] toml::de::Error),
     #[error("toml serialize Error")]
     TomlSerializeError(#[from] toml::ser::Error),
+    #[error("bincode encode Error")]
+    BincodeEncodeError(#[from] bincode::error::EncodeError),
+    #[error("bincode decode Error")]
+    BincodeDecodeError(#[from] bincode::error::DecodeError),
 
     #[error("database: Empty_slots vector is empty")]
     EmptySlotsVectorIsEmpty,
@@ -143,9 +187,6 @@ pub enum VeloxGraphError {
     #[error("unknown database error")]
     Unknown,
 }
-
-const SLOT_USED: bool = true;
-const SLOT_NOT_USED: bool = false;
 
 // const SETTINGS_FILE_NAME: &str = "vdb_settings.toml";
 
@@ -163,19 +204,28 @@ impl VeloxGraghSettings {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Connection<ConnectionT: Clone> {
+#[derive(Clone, Debug, Encode, Decode)]
+pub struct Connection<ConnectionT>
+where
+    ConnectionT: Clone + Encode + Decode<()>,
+{
     pub node_id: usize,
     pub data: ConnectionT,
 }
 
-#[derive(Clone, Debug)]
-pub struct ConnectionsForward<ConnectionT: Clone> {
+#[derive(Clone, Debug, Encode, Decode)]
+pub struct ConnectionsForward<ConnectionT>
+where
+    ConnectionT: Clone + Encode + Decode<()>,
+{
     pub lookup_hash: HashMap<usize, usize>,
     pub data_vec: Vec<Connection<ConnectionT>>,
 }
 
-impl<ConnectionT: Clone> ConnectionsForward<ConnectionT> {
+impl<ConnectionT> ConnectionsForward<ConnectionT>
+where
+    ConnectionT: Clone + Encode + Decode<()>,
+{
     fn new() -> ConnectionsForward<ConnectionT> {
         ConnectionsForward {
             lookup_hash: HashMap::new(),
@@ -220,8 +270,12 @@ impl<ConnectionT: Clone> ConnectionsForward<ConnectionT> {
     }
 }
 
-#[derive(Clone)]
-pub struct Node<NodeT: Clone, ConnectionT: Clone> {
+#[derive(Clone, Encode, Decode)]
+pub struct Node<NodeT, ConnectionT>
+where
+    NodeT: Clone + Encode + Decode<()>,
+    ConnectionT: Clone + Encode + Decode<()>,
+{
     node_id: usize,
     pub data: NodeT,
 
@@ -229,13 +283,11 @@ pub struct Node<NodeT: Clone, ConnectionT: Clone> {
     connections_backward: HashSet<usize>,
 }
 
-#[derive(Clone)]
-struct NodeOption<NodeT: Clone, ConnectionT: Clone> {
-    is_used: bool,
-    node: Node<NodeT, ConnectionT>,
-}
-
-impl<NodeT: Clone, ConnectionT: Clone> Node<NodeT, ConnectionT> {
+impl<NodeT, ConnectionT> Node<NodeT, ConnectionT>
+where
+    NodeT: Clone + Encode + Decode<()>,
+    ConnectionT: Clone + Encode + Decode<()>,
+{
     fn new(node_id: usize, node_data: NodeT) -> Node<NodeT, ConnectionT> {
         Node {
             node_id,
@@ -382,7 +434,11 @@ impl<NodeT: Clone, ConnectionT: Clone> Node<NodeT, ConnectionT> {
     }
 }
 
-pub struct VeloxGraph<NodeT: Clone, ConnectionT: Clone> {
+pub struct VeloxGraph<NodeT, ConnectionT>
+where
+    NodeT: Clone + Encode + Decode<()>,
+    ConnectionT: Clone + Encode + Decode<()>,
+{
     #[allow(dead_code)]
     settings: VeloxGraghSettings,
 
@@ -390,25 +446,29 @@ pub struct VeloxGraph<NodeT: Clone, ConnectionT: Clone> {
     // latest_available_slot: usize,
     pub num_entries: usize,
     // num_used_slots: usize,
-    nodes_vector: Vec<NodeOption<NodeT, ConnectionT>>,
+    nodes_vector: Vec<Option<Node<NodeT, ConnectionT>>>,
     empty_slots: Vec<usize>,
 }
 
-impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
+impl<NodeT, ConnectionT> VeloxGraph<NodeT, ConnectionT>
+where
+    NodeT: Clone + Encode + Decode<()>,
+    ConnectionT: Clone + Encode + Decode<()>,
+{
     /// Initialize the graph.
     ///
     /// # Example
     ///
     /// ```
     /// // INFO: Sample data to store in the nodes. This is CUSTOM DATA defined by you that is stored in each node.
-    /// #[derive(Clone, Debug)]
+    /// #[derive(Clone, Debug, Encode, Decode)]
     /// struct NodeData {
     ///     x: u32,
     ///     y: u32,
     /// }
     ///
     /// // INFO: Sample data to store in the connections. This is CUSTOM DATA defined by you that is stored in each connection.
-    /// #[derive(Clone, Debug)]
+    /// #[derive(Clone, Debug, Encode, Decode)]
     /// struct ConnData {
     ///     a: u32,
     ///     b: f64,
@@ -444,10 +504,11 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
     /// assert_eq!(graph.num_entries, 2);
     /// ```
     pub fn node_create(&mut self, node_data: NodeT) -> usize {
-        let new_node_option = NodeOption {
-            is_used: SLOT_USED,
-            node: Node::new(0, node_data),
-        };
+        // let new_node_option = NodeOption {
+        //     is_used: SLOT_USED,
+        //     node: Node::new(0, node_data),
+        // };
+        let new_node_option = Some(Node::new(0, node_data));
 
         let new_node_id = match self.empty_slots.pop() {
             Some(new_node_id_value) => {
@@ -462,7 +523,9 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
 
         self.num_entries += 1;
 
-        self.nodes_vector[new_node_id].node.node_id = new_node_id;
+        if let Some(node) = &mut self.nodes_vector[new_node_id] {
+            node.node_id = new_node_id;
+        }
 
         new_node_id
     }
@@ -498,11 +561,20 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
 
         let node_option = &mut self.nodes_vector[node_id];
 
-        if node_option.is_used == SLOT_NOT_USED {
-            return Err(VeloxGraphError::SlotNotUsed(node_id));
+        match node_option {
+            Some(node) => Ok(node),
+            None => return Err(VeloxGraphError::SlotNotUsed(node_id)),
         }
 
-        Ok(&mut node_option.node)
+        // if node_option.is_none() {
+        //     return Err(VeloxGraphError::SlotNotUsed(node_id));
+        // }
+
+        // // if node_option.is_used == SLOT_NOT_USED {
+        // //     return Err(VeloxGraphError::SlotNotUsed(node_id));
+        // // }
+
+        // Ok(&mut node_option.node)
     }
 
     /// Delete nodes.
@@ -552,7 +624,7 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
             }
             false => {
                 self.empty_slots.push(node_id_to_delete);
-                self.nodes_vector[node_id_to_delete].is_used = SLOT_NOT_USED;
+                self.nodes_vector[node_id_to_delete] = None;
             }
         }
 
@@ -637,5 +709,116 @@ impl<NodeT: Clone, ConnectionT: Clone> VeloxGraph<NodeT, ConnectionT> {
         second_node.connection_backward_delete(first_node_id);
 
         Ok(())
+    }
+
+    /// Save graph to file.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Initialize the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    ///
+    /// // INFO: Create example nodes.
+    /// let node_id0 = graph.node_create(634);
+    /// let node_id1 = graph.node_create(43);
+    ///
+    /// // INFO: Create connection from node0 to node1.
+    /// graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
+    ///
+    /// // INFO: Save the graph.
+    /// graph.save("some_file.vg".to_string()).unwrap();
+    /// ```
+    pub fn save(&self, file_path: String) -> Result<(), VeloxGraphError> {
+        let config = config::standard();
+
+        let file = File::create(file_path)?;
+        let mut file = LineWriter::new(file);
+
+        // INFO: store empty_slots.
+        let empty_slots_encoded: Vec<u8> = bincode::encode_to_vec(&self.empty_slots, config)?;
+        let empty_slots_encoded_len = empty_slots_encoded.len() as u32;
+        let len_encoded = empty_slots_encoded_len.to_le_bytes();
+        file.write_all(&len_encoded)?;
+        file.write_all(&empty_slots_encoded)?;
+
+        // INFO: store number of node_options.
+        let num_node_options = self.nodes_vector.len() as u32;
+        let num_node_options_encoded = num_node_options.to_le_bytes();
+        file.write_all(&num_node_options_encoded)?;
+
+        // INFO: store each node_option.
+        for node_option in &self.nodes_vector {
+            let encoded_node_option: Vec<u8> = bincode::encode_to_vec(node_option, config)?;
+
+            let encoded_node_option_len = encoded_node_option.len() as u32;
+            let len_encoded = encoded_node_option_len.to_le_bytes();
+            file.write_all(&len_encoded)?;
+            file.write_all(&encoded_node_option)?;
+        }
+
+        Ok(())
+    }
+
+    /// Load graph from file.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // INFO: Load the graph.
+    /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::load("some_file.vg".to_string()).unwrap();
+    /// println!("num_entries {}", graph.num_entries);
+    /// ```
+    pub fn load(file_path: String) -> Result<VeloxGraph<NodeT, ConnectionT>, VeloxGraphError> {
+        let mut new_graph = VeloxGraph::new();
+
+        let config = config::standard();
+
+        let file = File::open(file_path)?;
+
+        let mut start_byte = 0;
+
+        // INFO: load empty_slots.
+        let mut raw_data = [0; 4];
+        file.read_at(&mut raw_data, start_byte)?;
+        let len = u32::from_le_bytes(raw_data) as usize;
+        start_byte += 4;
+
+        let mut raw_data = vec![0; len];
+        file.read_at(&mut raw_data, start_byte)?;
+        start_byte += len as u64;
+
+        let (empty_slots, _len): (Vec<usize>, usize) =
+            bincode::decode_from_slice(&raw_data[..], config)?;
+        new_graph.empty_slots = empty_slots;
+
+        // INFO: load number of node_options.
+        let mut raw_data = [0; 4];
+        file.read_at(&mut raw_data, start_byte)?;
+        let num_node_options = u32::from_le_bytes(raw_data) as usize;
+        start_byte += 4;
+
+        // INFO: load each node_option.
+        for _index in 0..num_node_options {
+            let mut raw_data = [0; 4];
+            file.read_at(&mut raw_data, start_byte)?;
+            let len = u32::from_le_bytes(raw_data) as usize;
+            start_byte += 4;
+
+            let mut raw_data = vec![0; len];
+            file.read_at(&mut raw_data, start_byte)?;
+            start_byte += len as u64;
+
+            let (node_option, _len): (Option<Node<NodeT, ConnectionT>>, usize) =
+                bincode::decode_from_slice(&raw_data[..], config)?;
+
+            if let Some(_node) = &node_option {
+                new_graph.num_entries += 1;
+            }
+
+            new_graph.nodes_vector.push(node_option);
+        }
+
+        Ok(new_graph)
     }
 }
