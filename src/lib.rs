@@ -13,7 +13,7 @@
 //! Add this to your Cargo.toml file in your rust project:
 //! ```toml
 //! [dependencies]
-//! velox_graph = "2.0.0"
+//! velox_graph = "3.0.0"
 //! ```
 //!
 //! ### Basic Code Example
@@ -69,17 +69,17 @@
 //! ### More Complex Code Example
 //! ```rust
 //! use velox_graph::VeloxGraph;
-//! use bincode::{Decode, Encode};
+//! use serde::{Deserialize, Serialize};
 //!
 //! // INFO: Sample data to store in the nodes.
-//! #[derive(Clone, Debug, Encode, Decode)]
+//! #[derive(Clone, Debug, Serialize, Deserialize)]
 //! struct NodeData {
 //!     x: u32,
 //!     y: u32,
 //! }
 //!
 //! // INFO: Sample data to store in the connections.
-//! #[derive(Clone, Debug, Encode, Decode)]
+//! #[derive(Clone, Debug, Serialize, Deserialize)]
 //! struct ConnData {
 //!     a: u32,
 //!     b: f64,
@@ -150,8 +150,8 @@
 
 pub mod tests;
 
-use bincode::{config, Decode, Encode};
-use serde::{Deserialize, Serialize};
+use postcard;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::result::Result::Err;
 use thiserror::Error;
@@ -170,10 +170,8 @@ pub enum VeloxGraphError {
     TomlDeserializeError(#[from] toml::de::Error),
     #[error("toml serialize Error")]
     TomlSerializeError(#[from] toml::ser::Error),
-    #[error("bincode encode Error")]
-    BincodeEncodeError(#[from] bincode::error::EncodeError),
-    #[error("bincode decode Error")]
-    BincodeDecodeError(#[from] bincode::error::DecodeError),
+    #[error("postcard Error")]
+    PostcardError(#[from] postcard::Error),
 
     #[error("database: Empty_slots vector is empty")]
     EmptySlotsVectorIsEmpty,
@@ -204,19 +202,21 @@ impl VeloxGraghSettings {
     }
 }
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "ConnectionT: Serialize + DeserializeOwned")]
 pub struct Connection<ConnectionT>
 where
-    ConnectionT: Clone + Encode + Decode<()>,
+    ConnectionT: Clone + Serialize + DeserializeOwned,
 {
     pub node_id: usize,
     pub data: ConnectionT,
 }
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "ConnectionT: Serialize + DeserializeOwned")]
 pub struct ConnectionsForward<ConnectionT>
 where
-    ConnectionT: Clone + Encode + Decode<()>,
+    ConnectionT: Clone + Serialize + DeserializeOwned,
 {
     pub lookup_hash: HashMap<usize, usize>,
     pub data_vec: Vec<Connection<ConnectionT>>,
@@ -224,7 +224,7 @@ where
 
 impl<ConnectionT> ConnectionsForward<ConnectionT>
 where
-    ConnectionT: Clone + Encode + Decode<()>,
+    ConnectionT: Clone + Serialize + DeserializeOwned,
 {
     fn new() -> ConnectionsForward<ConnectionT> {
         ConnectionsForward {
@@ -270,11 +270,15 @@ where
     }
 }
 
-#[derive(Clone, Encode, Decode)]
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(bound = "
+    NodeT: Serialize + DeserializeOwned,
+    ConnectionT: Serialize + DeserializeOwned
+")]
 pub struct Node<NodeT, ConnectionT>
 where
-    NodeT: Clone + Encode + Decode<()>,
-    ConnectionT: Clone + Encode + Decode<()>,
+    NodeT: Clone + Serialize + DeserializeOwned,
+    ConnectionT: Clone + Serialize + DeserializeOwned,
 {
     node_id: usize,
     pub data: NodeT,
@@ -285,8 +289,8 @@ where
 
 impl<NodeT, ConnectionT> Node<NodeT, ConnectionT>
 where
-    NodeT: Clone + Encode + Decode<()>,
-    ConnectionT: Clone + Encode + Decode<()>,
+    NodeT: Clone + Serialize + DeserializeOwned,
+    ConnectionT: Clone + Serialize + DeserializeOwned,
 {
     fn new(node_id: usize, node_data: NodeT) -> Node<NodeT, ConnectionT> {
         Node {
@@ -436,8 +440,8 @@ where
 
 pub struct VeloxGraph<NodeT, ConnectionT>
 where
-    NodeT: Clone + Encode + Decode<()>,
-    ConnectionT: Clone + Encode + Decode<()>,
+    NodeT: Clone + Serialize + DeserializeOwned,
+    ConnectionT: Clone + Serialize + DeserializeOwned,
 {
     #[allow(dead_code)]
     settings: VeloxGraghSettings,
@@ -452,8 +456,8 @@ where
 
 impl<NodeT, ConnectionT> VeloxGraph<NodeT, ConnectionT>
 where
-    NodeT: Clone + Encode + Decode<()>,
-    ConnectionT: Clone + Encode + Decode<()>,
+    NodeT: Clone + Serialize + DeserializeOwned,
+    ConnectionT: Clone + Serialize + DeserializeOwned,
 {
     /// Initialize the graph.
     ///
@@ -461,14 +465,14 @@ where
     ///
     /// ```
     /// // INFO: Sample data to store in the nodes. This is CUSTOM DATA defined by you that is stored in each node.
-    /// #[derive(Clone, Debug, Encode, Decode)]
+    /// #[derive(Clone, Debug, Serialize, Deserialize)]
     /// struct NodeData {
     ///     x: u32,
     ///     y: u32,
     /// }
     ///
     /// // INFO: Sample data to store in the connections. This is CUSTOM DATA defined by you that is stored in each connection.
-    /// #[derive(Clone, Debug, Encode, Decode)]
+    /// #[derive(Clone, Debug, Serialize, Deserialize)]
     /// struct ConnData {
     ///     a: u32,
     ///     b: f64,
@@ -730,13 +734,11 @@ where
     /// graph.save("some_file.vg".to_string()).unwrap();
     /// ```
     pub fn save(&self, file_path: String) -> Result<(), VeloxGraphError> {
-        let config = config::standard();
-
         let file = File::create(file_path)?;
         let mut file = LineWriter::new(file);
 
         // INFO: store empty_slots.
-        let empty_slots_encoded: Vec<u8> = bincode::encode_to_vec(&self.empty_slots, config)?;
+        let empty_slots_encoded: Vec<u8> = postcard::to_stdvec(&self.empty_slots)?;
         let empty_slots_encoded_len = empty_slots_encoded.len() as u32;
         let len_encoded = empty_slots_encoded_len.to_le_bytes();
         file.write_all(&len_encoded)?;
@@ -749,7 +751,7 @@ where
 
         // INFO: store each node_option.
         for node_option in &self.nodes_vector {
-            let encoded_node_option: Vec<u8> = bincode::encode_to_vec(node_option, config)?;
+            let encoded_node_option: Vec<u8> = postcard::to_stdvec(node_option)?;
 
             let encoded_node_option_len = encoded_node_option.len() as u32;
             let len_encoded = encoded_node_option_len.to_le_bytes();
@@ -772,8 +774,6 @@ where
     pub fn load(file_path: String) -> Result<VeloxGraph<NodeT, ConnectionT>, VeloxGraphError> {
         let mut new_graph = VeloxGraph::new();
 
-        let config = config::standard();
-
         let file = File::open(file_path)?;
 
         let mut start_byte = 0;
@@ -784,12 +784,12 @@ where
         let len = u32::from_le_bytes(raw_data) as usize;
         start_byte += 4;
 
-        let mut raw_data = vec![0; len];
+        let raw_len = len * 4;
+        let mut raw_data = vec![0; raw_len];
         file.read_at(&mut raw_data, start_byte)?;
         start_byte += len as u64;
 
-        let (empty_slots, _len): (Vec<usize>, usize) =
-            bincode::decode_from_slice(&raw_data[..], config)?;
+        let (empty_slots, _len): (Vec<usize>, usize) = postcard::from_bytes(&raw_data[..])?;
         new_graph.empty_slots = empty_slots;
 
         // INFO: load number of node_options.
@@ -805,12 +805,13 @@ where
             let len = u32::from_le_bytes(raw_data) as usize;
             start_byte += 4;
 
-            let mut raw_data = vec![0; len];
+            let raw_len = len * 4;
+            let mut raw_data = vec![0; raw_len];
             file.read_at(&mut raw_data, start_byte)?;
             start_byte += len as u64;
 
             let (node_option, _len): (Option<Node<NodeT, ConnectionT>>, usize) =
-                bincode::decode_from_slice(&raw_data[..], config)?;
+                postcard::from_bytes(&raw_data[..])?;
 
             if let Some(_node) = &node_option {
                 new_graph.num_entries += 1;
