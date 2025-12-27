@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["VeloxGraphError"],"struct":["Connection","ConnectionsForward","Node","VeloxGraghSettings","VeloxGraph"]};

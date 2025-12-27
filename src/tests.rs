@@ -2,13 +2,13 @@
 
 use super::VeloxGraph;
 
-use bincode::{Decode, Encode};
 use rand::seq::SliceRandom;
+use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use std::time::{self, Duration};
 use std::{thread, usize};
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct SomeData {
     x: u32,
     y: u32,

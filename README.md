@@ -1,4 +1,4 @@
-# ![](assets/velox_graph_logo.png)
+# VeloxGraph
 
 [![Crates.io](https://img.shields.io/crates/v/velox_graph.svg)](https://crates.io/crates/velox_graph)
 [![Apache2.0 licensed](https://img.shields.io/badge/license-Apache2.0-blue.svg)](https://github.com/taylerallen6/velox_graph/blob/main/LICENSE)
@@ -21,7 +21,7 @@ Matrix representations, on the other hand, are highly efficient (and the preferr
 Add this to your Cargo.toml file in your rust project:
 ```toml
 [dependencies]
-velox_graph = "2.0.0"
+velox_graph = "3.0.0"
 ```
 
 ### Basic Code Example
@@ -77,17 +77,17 @@ fn main() {
 ### More Complex Code Example
 ```rust
 use velox_graph::VeloxGraph;
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 // INFO: Sample data to store in the nodes.
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct NodeData {
     x: u32,
     y: u32,
 }
 
 // INFO: Sample data to store in the connections.
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct ConnData {
     a: u32,
     b: f64,
@@ -155,12 +155,3 @@ fn main() {
     println!("num_entries: {}", graph.num_entries);
 }
 ```
-
-## Upcoming features and future plans:
-
-The next major feature that I am working on is implementing a fast way to back up or save the data. Currently, it is only stored in-memory and I have been using a separate system for persisting it to disk.
-
-I will most likely have to implement something similar to how other in-memory databases save data, by keeping a list of the transactions and recreating the database from that. But I still need to look into this more before deciding if it fits the needs of the rest of the project.
-
-As for visions for the future, I intend to keep this project as minimal as possible and build a new system of implementing neural networks off of it.
-
