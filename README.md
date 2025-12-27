@@ -1,4 +1,4 @@
-# ![](assets/velox_graph_logo.png)
+# VeloxGraph
 
 [![Crates.io](https://img.shields.io/crates/v/velox_graph.svg)](https://crates.io/crates/velox_graph)
 [![Apache2.0 licensed](https://img.shields.io/badge/license-Apache2.0-blue.svg)](https://github.com/taylerallen6/velox_graph/blob/main/LICENSE)

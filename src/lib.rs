@@ -1,5 +1,3 @@
-//! # ![](../assets/velox_graph_logo.png)
-//!
 //! # VeloxGraph
 //!
 //! [![Crates.io](https://img.shields.io/crates/v/velox_graph.svg)](https://crates.io/crates/velox_graph)
