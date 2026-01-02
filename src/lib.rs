@@ -151,6 +151,7 @@ pub mod tests;
 use postcard;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::num::TryFromIntError;
 use std::result::Result::Err;
 use thiserror::Error;
 
@@ -170,6 +171,8 @@ pub enum VeloxGraphError {
     TomlSerializeError(#[from] toml::ser::Error),
     #[error("postcard Error")]
     PostcardError(#[from] postcard::Error),
+    #[error("Node ID overflow: value too large for usize")]
+    Overflow(#[from] TryFromIntError),
 
     #[error("database: Empty_slots vector is empty")]
     EmptySlotsVectorIsEmpty,
@@ -184,6 +187,84 @@ pub enum VeloxGraphError {
     Unknown,
 }
 
+// Sealed trait (same as before)
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for usize {}
+    impl Sealed for u8 {}
+    impl Sealed for u16 {}
+    impl Sealed for u32 {}
+    impl Sealed for u64 {}
+}
+
+pub trait UnsignedInt:
+    sealed::Sealed
+    + Copy
+    + Clone
+    + std::fmt::Debug
+    + Serialize
+    + DeserializeOwned
+    + std::hash::Hash
+    + Eq // + other ops if needed (e.g., Add, From<u8>)
+{
+    fn to_usize(&self) -> usize; // NEW: Infallible conversion to usize
+
+    // Optional: Symmetric from usize (infallible, assuming values fit)
+    fn from_usize(value: usize) -> Self;
+}
+
+impl UnsignedInt for usize {
+    fn to_usize(&self) -> usize {
+        *self
+    }
+
+    fn from_usize(value: usize) -> Self {
+        value
+    }
+}
+// Impls for smaller types (always safe)
+impl UnsignedInt for u8 {
+    fn to_usize(&self) -> usize {
+        *self as usize
+    }
+
+    fn from_usize(value: usize) -> Self {
+        value as u8 // Truncates if too large; add checks if needed
+    }
+}
+
+impl UnsignedInt for u16 {
+    fn to_usize(&self) -> usize {
+        *self as usize
+    }
+
+    fn from_usize(value: usize) -> Self {
+        value as u16
+    }
+}
+
+impl UnsignedInt for u32 {
+    fn to_usize(&self) -> usize {
+        *self as usize
+    }
+
+    fn from_usize(value: usize) -> Self {
+        value as u32
+    }
+}
+
+// Conditional impl for u64: Only on 64-bit systems
+#[cfg(target_pointer_width = "64")]
+impl UnsignedInt for u64 {
+    fn to_usize(&self) -> usize {
+        *self as usize // Safe: same size
+    }
+
+    fn from_usize(value: usize) -> Self {
+        value as u64
+    }
+}
+
 // const SETTINGS_FILE_NAME: &str = "vdb_settings.toml";
 
 // INFO: TOML serialized
@@ -195,36 +276,47 @@ pub struct VeloxGraghSettings {
 impl VeloxGraghSettings {
     fn new() -> VeloxGraghSettings {
         VeloxGraghSettings {
-            version: String::from("2.0"),
+            version: String::from("4.0"),
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(bound = "ConnectionT: Serialize + DeserializeOwned")]
-pub struct Connection<ConnectionT>
+// #[serde(bound = "ConnectionT: Serialize + DeserializeOwned")]
+#[serde(bound(
+    serialize = "ConnNodeIdT: UnsignedInt, ConnectionT: Serialize",
+    deserialize = "ConnNodeIdT: UnsignedInt, ConnectionT: DeserializeOwned"
+))]
+pub struct Connection<ConnNodeIdT, ConnectionT>
 where
+    ConnNodeIdT: UnsignedInt,
     ConnectionT: Clone + Serialize + DeserializeOwned,
 {
-    pub node_id: usize,
+    pub node_id: ConnNodeIdT,
     pub data: ConnectionT,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(bound = "ConnectionT: Serialize + DeserializeOwned")]
-pub struct ConnectionsForward<ConnectionT>
+// #[serde(bound = "ConnectionT: Serialize + DeserializeOwned")]
+#[serde(bound(
+    serialize = "ConnNodeIdT: UnsignedInt, ConnectionT: Serialize",
+    deserialize = "ConnNodeIdT: UnsignedInt, ConnectionT: DeserializeOwned"
+))]
+pub struct ConnectionsForward<ConnNodeIdT, ConnectionT>
 where
+    ConnNodeIdT: UnsignedInt,
     ConnectionT: Clone + Serialize + DeserializeOwned,
 {
-    pub lookup_hash: HashMap<usize, usize>,
-    pub data_vec: Vec<Connection<ConnectionT>>,
+    pub lookup_hash: HashMap<ConnNodeIdT, ConnNodeIdT>,
+    pub data_vec: Vec<Connection<ConnNodeIdT, ConnectionT>>,
 }
 
-impl<ConnectionT> ConnectionsForward<ConnectionT>
+impl<ConnNodeIdT, ConnectionT> ConnectionsForward<ConnNodeIdT, ConnectionT>
 where
+    ConnNodeIdT: UnsignedInt,
     ConnectionT: Clone + Serialize + DeserializeOwned,
 {
-    fn new() -> ConnectionsForward<ConnectionT> {
+    fn new() -> ConnectionsForward<ConnNodeIdT, ConnectionT> {
         ConnectionsForward {
             lookup_hash: HashMap::new(),
             data_vec: Vec::new(),
@@ -260,37 +352,54 @@ where
     pub fn get<'a>(
         &'a self,
         node_id: usize,
-    ) -> Result<&'a Connection<ConnectionT>, VeloxGraphError> {
-        match self.lookup_hash.get(&node_id) {
-            Some(&connection_index) => Ok(&self.data_vec[connection_index]),
-            None => Err(VeloxGraphError::ConnectionNotSet(node_id)),
+    ) -> Result<&'a Connection<ConnNodeIdT, ConnectionT>, VeloxGraphError> {
+        let node_id_generic = ConnNodeIdT::from_usize(node_id);
+        match self.lookup_hash.get(&node_id_generic) {
+            Some(&connection_index) => {
+                let connection_index: usize = connection_index.to_usize();
+                Ok(&self.data_vec[connection_index])
+            }
+            None => {
+                let node_id: usize = node_id.to_usize();
+                Err(VeloxGraphError::ConnectionNotSet(node_id))
+            }
         }
     }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-#[serde(bound = "
-    NodeT: Serialize + DeserializeOwned,
-    ConnectionT: Serialize + DeserializeOwned
-")]
-pub struct Node<NodeT, ConnectionT>
+// #[serde(bound = "
+//     NodeT: Serialize + DeserializeOwned,
+//     ConnectionT: Serialize + DeserializeOwned
+// ")]
+#[serde(bound(
+    serialize = "NodeIdT: UnsignedInt,ConnNodeIdT: UnsignedInt,  NodeT: Serialize, ConnectionT: Serialize",
+    deserialize = "NodeIdT: UnsignedInt,ConnNodeIdT: UnsignedInt,  NodeT: DeserializeOwned, ConnectionT: DeserializeOwned"
+))]
+pub struct Node<NodeIdT, ConnNodeIdT, NodeT, ConnectionT>
 where
+    NodeIdT: UnsignedInt,
+    ConnNodeIdT: UnsignedInt,
     NodeT: Clone + Serialize + DeserializeOwned,
     ConnectionT: Clone + Serialize + DeserializeOwned,
 {
-    node_id: usize,
+    node_id: NodeIdT,
     pub data: NodeT,
 
-    connections_forward: ConnectionsForward<ConnectionT>,
-    connections_backward: HashSet<usize>,
+    connections_forward: ConnectionsForward<ConnNodeIdT, ConnectionT>,
+    connections_backward: HashSet<ConnNodeIdT>,
 }
 
-impl<NodeT, ConnectionT> Node<NodeT, ConnectionT>
+impl<NodeIdT, ConnNodeIdT, NodeT, ConnectionT> Node<NodeIdT, ConnNodeIdT, NodeT, ConnectionT>
 where
+    NodeIdT: UnsignedInt,
+    ConnNodeIdT: UnsignedInt,
     NodeT: Clone + Serialize + DeserializeOwned,
     ConnectionT: Clone + Serialize + DeserializeOwned,
 {
-    fn new(node_id: usize, node_data: NodeT) -> Node<NodeT, ConnectionT> {
+    fn new(node_id: usize, node_data: NodeT) -> Node<NodeIdT, ConnNodeIdT, NodeT, ConnectionT> {
+        let node_id = NodeIdT::from_usize(node_id);
+
         Node {
             node_id,
             data: node_data,
@@ -323,7 +432,9 @@ where
     ///
     /// assert_eq!(connection.data, 5.24);
     /// ```
-    pub fn connections_forward_get_all<'a>(&'a self) -> &'a ConnectionsForward<ConnectionT> {
+    pub fn connections_forward_get_all<'a>(
+        &'a self,
+    ) -> &'a ConnectionsForward<ConnNodeIdT, ConnectionT> {
         &self.connections_forward
     }
 
@@ -351,13 +462,16 @@ where
     ///
     /// assert_eq!(does_connection_exist, true);
     /// ```
-    pub fn connections_backward_get_all<'a>(&'a self) -> &'a HashSet<usize> {
+    pub fn connections_backward_get_all<'a>(&'a self) -> &'a HashSet<ConnNodeIdT> {
         &self.connections_backward
     }
 
     fn connection_forward_set(&mut self, node_id_value: usize, connection_data: ConnectionT) {
+        let node_id_value = ConnNodeIdT::from_usize(node_id_value);
+
         match self.connections_forward.lookup_hash.get(&node_id_value) {
             Some(&connection_index) => {
+                let connection_index: usize = connection_index.to_usize();
                 let connection = &mut self.connections_forward.data_vec[connection_index];
                 connection.data = connection_data;
             }
@@ -370,6 +484,7 @@ where
                 self.connections_forward.data_vec.push(new_connection);
 
                 let new_connection_index = self.connections_forward.data_vec.len() - 1;
+                let new_connection_index = ConnNodeIdT::from_usize(new_connection_index);
                 self.connections_forward
                     .lookup_hash
                     .insert(node_id_value, new_connection_index);
@@ -378,6 +493,8 @@ where
     }
 
     fn connection_forward_remove(&mut self, node_id_value: usize) {
+        let node_id_value = ConnNodeIdT::from_usize(node_id_value);
+
         //self.connections_forward.remove(&node_id_value);
         let data_vec_len = self.connections_forward.data_vec.len();
 
@@ -385,6 +502,7 @@ where
             if let Some(&connection_index) =
                 self.connections_forward.lookup_hash.get(&node_id_value)
             {
+                let connection_index: usize = connection_index.to_usize();
                 self.connections_forward.data_vec.remove(connection_index);
                 self.connections_forward.lookup_hash.remove(&node_id_value);
             }
@@ -393,10 +511,12 @@ where
         }
 
         if let Some(&connection_index) = self.connections_forward.lookup_hash.get(&node_id_value) {
+            let connection_index: usize = connection_index.to_usize();
             if data_vec_len == 1 || connection_index == data_vec_len - 1 {
                 if let Some(&connection_index) =
                     self.connections_forward.lookup_hash.get(&node_id_value)
                 {
+                    let connection_index: usize = connection_index.to_usize();
                     self.connections_forward.data_vec.remove(connection_index);
                     self.connections_forward.lookup_hash.remove(&node_id_value);
                 }
@@ -411,6 +531,7 @@ where
 
             let connection = &self.connections_forward.data_vec[connection_index];
 
+            let connection_index = ConnNodeIdT::from_usize(connection_index);
             self.connections_forward
                 .lookup_hash
                 .insert(connection.node_id, connection_index);
@@ -420,10 +541,12 @@ where
     }
 
     fn connection_backward_create(&mut self, node_id_value: usize) {
+        let node_id_value = ConnNodeIdT::from_usize(node_id_value);
         self.connections_backward.insert(node_id_value);
     }
 
     fn connection_backward_delete(&mut self, node_id_value: usize) {
+        let node_id_value = ConnNodeIdT::from_usize(node_id_value);
         //self.connections_backward.remove(&node_id_value);
 
         match self.connections_backward.get(&node_id_value) {
@@ -436,8 +559,10 @@ where
     }
 }
 
-pub struct VeloxGraph<NodeT, ConnectionT>
+pub struct VeloxGraph<NodeIdT, ConnNodeIdT, NodeT, ConnectionT>
 where
+    NodeIdT: UnsignedInt,
+    ConnNodeIdT: UnsignedInt,
     NodeT: Clone + Serialize + DeserializeOwned,
     ConnectionT: Clone + Serialize + DeserializeOwned,
 {
@@ -448,12 +573,14 @@ where
     // latest_available_slot: usize,
     pub num_entries: usize,
     // num_used_slots: usize,
-    nodes_vector: Vec<Option<Node<NodeT, ConnectionT>>>,
+    nodes_vector: Vec<Option<Node<NodeIdT, ConnNodeIdT, NodeT, ConnectionT>>>,
     empty_slots: Vec<usize>,
 }
 
-impl<NodeT, ConnectionT> VeloxGraph<NodeT, ConnectionT>
+impl<NodeIdT, ConnNodeIdT, NodeT, ConnectionT> VeloxGraph<NodeIdT, ConnNodeIdT, NodeT, ConnectionT>
 where
+    NodeIdT: UnsignedInt,
+    ConnNodeIdT: UnsignedInt,
     NodeT: Clone + Serialize + DeserializeOwned,
     ConnectionT: Clone + Serialize + DeserializeOwned,
 {
@@ -480,7 +607,7 @@ where
     /// let mut graph: VeloxGraph<NodeData, ConnData> = VeloxGraph::new();
     /// assert_eq!(graph.num_entries, 0);
     /// ```
-    pub fn new() -> VeloxGraph<NodeT, ConnectionT> {
+    pub fn new() -> VeloxGraph<NodeIdT, ConnNodeIdT, NodeT, ConnectionT> {
         let settings = VeloxGraghSettings::new();
 
         VeloxGraph {
@@ -526,7 +653,8 @@ where
         self.num_entries += 1;
 
         if let Some(node) = &mut self.nodes_vector[new_node_id] {
-            node.node_id = new_node_id;
+            let new_node_id_generic = NodeIdT::from_usize(new_node_id);
+            node.node_id = new_node_id_generic;
         }
 
         new_node_id
@@ -556,7 +684,7 @@ where
     pub fn node_get<'a>(
         &'a mut self,
         node_id: usize,
-    ) -> Result<&'a mut Node<NodeT, ConnectionT>, VeloxGraphError> {
+    ) -> Result<&'a mut Node<NodeIdT, ConnNodeIdT, NodeT, ConnectionT>, VeloxGraphError> {
         if node_id >= self.nodes_vector.len() {
             return Err(VeloxGraphError::SlotNotAllocated(node_id));
         }
@@ -605,6 +733,7 @@ where
             .iter()
             .for_each(|&connection_node_id| {
                 // let node = &mut self.nodes_vector[*connection_node_id].node;
+                let connection_node_id = connection_node_id.to_usize();
                 let node = self.node_get(connection_node_id).unwrap();
                 node.connection_forward_remove(node_id_to_delete);
             });
@@ -616,7 +745,8 @@ where
             .iter()
             .for_each(|connection| {
                 // let node = &mut self.nodes_vector[*connection_node_id].node;
-                let node = self.node_get(connection.node_id).unwrap();
+                let connection_node_id = connection.node_id.to_usize();
+                let node = self.node_get(connection_node_id).unwrap();
                 node.connection_backward_delete(node_id_to_delete);
             });
 
@@ -769,8 +899,10 @@ where
     /// let mut graph: VeloxGraph<u32, f64> = VeloxGraph::load("some_file.vg".to_string()).unwrap();
     /// println!("num_entries {}", graph.num_entries);
     /// ```
-    pub fn load(file_path: String) -> Result<VeloxGraph<NodeT, ConnectionT>, VeloxGraphError> {
-        let mut new_graph = VeloxGraph::new();
+    pub fn load(
+        file_path: String,
+    ) -> Result<VeloxGraph<NodeIdT, ConnNodeIdT, NodeT, ConnectionT>, VeloxGraphError> {
+        let mut new_graph = VeloxGraph::<NodeIdT, ConnNodeIdT, NodeT, ConnectionT>::new();
 
         let file = File::open(file_path)?;
 
@@ -808,8 +940,10 @@ where
             file.read_at(&mut raw_data, start_byte)?;
             start_byte += len as u64;
 
-            let (node_option, _len): (Option<Node<NodeT, ConnectionT>>, usize) =
-                postcard::from_bytes(&raw_data[..])?;
+            let (node_option, _len): (
+                Option<Node<NodeIdT, ConnNodeIdT, NodeT, ConnectionT>>,
+                usize,
+            ) = postcard::from_bytes(&raw_data[..])?;
 
             if let Some(_node) = &node_option {
                 new_graph.num_entries += 1;

@@ -18,7 +18,7 @@ struct SomeData {
 #[test]
 fn test_save_to_disk() {
     let file_path = "./save_file.vg".to_string();
-    let mut graph: VeloxGraph<SomeData, u32> = VeloxGraph::new();
+    let mut graph: VeloxGraph<u16, u16, SomeData, u32> = VeloxGraph::new();
 
     // println!("num_entries: {}", graph.num_entries);
     assert_eq!(graph.num_entries, 0);
@@ -51,7 +51,8 @@ fn test_save_to_disk() {
 
     graph.save(file_path.clone()).unwrap();
 
-    let mut loaded_graph: VeloxGraph<SomeData, u32> = VeloxGraph::load(file_path.clone()).unwrap();
+    let mut loaded_graph: VeloxGraph<u16, u16, SomeData, u32> =
+        VeloxGraph::load(file_path.clone()).unwrap();
     assert_eq!(loaded_graph.num_entries, 5);
     assert_eq!(loaded_graph.empty_slots, vec![3]);
 
@@ -61,11 +62,11 @@ fn test_save_to_disk() {
     let node0_forwards = &node0.connections_forward_get_all().data_vec;
     assert_eq!(node0_forwards.len(), 3);
     // println!("{:?}", node0_forwards);
-    assert_eq!(node0_forwards[0].node_id, node_id2);
+    assert_eq!(node0_forwards[0].node_id as usize, node_id2);
     assert_eq!(node0_forwards[0].data, 545);
-    assert_eq!(node0_forwards[1].node_id, node_id1);
+    assert_eq!(node0_forwards[1].node_id as usize, node_id1);
     assert_eq!(node0_forwards[1].data, 3);
-    assert_eq!(node0_forwards[2].node_id, node_id4);
+    assert_eq!(node0_forwards[2].node_id as usize, node_id4);
     assert_eq!(node0_forwards[2].data, 93);
 
     let node1 = loaded_graph.node_get(node_id1).unwrap();
@@ -74,9 +75,9 @@ fn test_save_to_disk() {
     let node1_forwards = &node1.connections_forward_get_all().data_vec;
     assert_eq!(node1_forwards.len(), 2);
     // println!("{:?}", node1_forwards);
-    assert_eq!(node1_forwards[0].node_id, node_id0);
+    assert_eq!(node1_forwards[0].node_id as usize, node_id0);
     assert_eq!(node1_forwards[0].data, 355);
-    assert_eq!(node1_forwards[1].node_id, node_id2);
+    assert_eq!(node1_forwards[1].node_id as usize, node_id2);
     assert_eq!(node1_forwards[1].data, 73);
 
     let node2 = loaded_graph.node_get(node_id2).unwrap();
@@ -90,7 +91,7 @@ fn test_save_to_disk() {
 // INFO: TEST BASIC FUNCTIONALITY.
 #[test]
 fn test_basic_functions() {
-    let mut graph: VeloxGraph<SomeData, u32> = VeloxGraph::new();
+    let mut graph: VeloxGraph<u16, u16, SomeData, u32> = VeloxGraph::new();
 
     // println!("num_entries: {}", graph.num_entries);
     assert_eq!(graph.num_entries, 0);
@@ -148,7 +149,9 @@ fn test_basic_functions() {
 
     // INFO: START: test setting connection twice
     let temp_node_id = node.node_id.clone();
-    graph.nodes_connection_set(temp_node_id, 3, 6666).unwrap();
+    graph
+        .nodes_connection_set(temp_node_id as usize, 3, 6666)
+        .unwrap();
 
     let node = graph.node_get(node_id).unwrap();
     let forwards = node.connections_forward_get_all();
@@ -239,7 +242,7 @@ fn speed_test() {
     let mut random_nodes: Vec<usize> = (0..NUM_NODES).collect();
     random_nodes.shuffle(&mut rand::rng());
 
-    let mut graph: VeloxGraph<u32, u32> = VeloxGraph::new();
+    let mut graph: VeloxGraph<u16, u16, u32, u32> = VeloxGraph::new();
     thread::sleep(delay_time);
 
     create_nodes_test(&mut graph, NUM_NODES);
@@ -265,7 +268,7 @@ fn speed_test() {
     println!("save time: {:.2?}", time_elapsed);
     let timestamp = Instant::now();
 
-    let mut graph: VeloxGraph<u32, u32> = VeloxGraph::load(file_path.clone()).unwrap();
+    let mut graph: VeloxGraph<u16, u16, u32, u32> = VeloxGraph::load(file_path.clone()).unwrap();
 
     let time_elapsed = timestamp.elapsed();
     println!("load time: {:.2?}", time_elapsed);
@@ -275,7 +278,7 @@ fn speed_test() {
     delete_nodes_test(&mut graph, NUM_NODES);
 }
 
-fn create_nodes_test(graph: &mut VeloxGraph<u32, u32>, num_nodes: usize) {
+fn create_nodes_test(graph: &mut VeloxGraph<u16, u16, u32, u32>, num_nodes: usize) {
     let mut create_times = Vec::new();
     let mut timestamp: Instant;
     let mut time_elapsed: Duration;
@@ -298,7 +301,7 @@ fn create_nodes_test(graph: &mut VeloxGraph<u32, u32>, num_nodes: usize) {
 }
 
 fn create_connections_test(
-    graph: &mut VeloxGraph<u32, u32>,
+    graph: &mut VeloxGraph<u16, u16, u32, u32>,
     num_connections_to_create: usize,
     random_nodes: Vec<usize>,
     mut random_nodes_to_connect: Vec<usize>,
@@ -329,7 +332,7 @@ fn create_connections_test(
     let time_per_operation =
         create_connections_times.iter().sum::<Duration>() / create_connections_times.len() as u32;
     println!(
-        "create_connections: time per db operation: {:.2?}",
+        "create_connections: mean time per db operation: {:.2?}",
         time_per_operation
     );
     let max_time = create_connections_times.iter().max().unwrap();
@@ -345,7 +348,7 @@ fn create_connections_test(
     println!();
 }
 
-fn delete_nodes_test(graph: &mut VeloxGraph<u32, u32>, num_nodes: usize) {
+fn delete_nodes_test(graph: &mut VeloxGraph<u16, u16, u32, u32>, num_nodes: usize) {
     let mut delete_times = Vec::new();
     let mut timestamp: Instant;
     let mut time_elapsed: Duration;
