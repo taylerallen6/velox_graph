@@ -4,7 +4,7 @@
 [![Apache2.0 licensed](https://img.shields.io/badge/license-Apache2.0-blue.svg)](https://github.com/taylerallen6/velox_graph/blob/main/LICENSE)
 [![Documentation](https://docs.rs/velox_graph/badge.svg)](https://docs.rs/velox_graph)
 
-VeloxGraph is an extremely fast, efficient, low-level, in-memory, minimal graph database (wow, that is a mouth full). It is not revolutionary in its design but has a few key features that make it vital to the development of a new type of neural network architecture that I am working on, and THAT is what I consider revolutionary.
+VeloxGraph is an extremely fast, efficient, low-level, in-memory, minimal graph database (wow, that is a mouth full). It is not revolutionary in its design but has a few key features that make it vital to the development of a new type of neural network architecture that I am working on.
 
 ## VeloxGraph vs traditional matrix representations:
 
@@ -21,7 +21,7 @@ Matrix representations, on the other hand, are highly efficient (and the preferr
 Add this to your Cargo.toml file in your rust project:
 ```toml
 [dependencies]
-velox_graph = "3.0.0"
+velox_graph = "4.0.0"
 ```
 
 ### Basic Code Example
@@ -30,7 +30,11 @@ use velox_graph::VeloxGraph;
 
 fn main() {
     // INFO: Initialize the graph.
-    let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    let mut graph: VeloxGraph<
+        usize,    // NodeIdT: Size for each node id. Small saves memory. Larger allows more nodes.
+        u32,      // NodeT
+        f64,      // ConnectionT
+    > = VeloxGraph::new();
 
     // INFO: Create your first nodes.
     let node_id0 = graph.node_create(634);
@@ -53,7 +57,11 @@ use velox_graph::VeloxGraph;
 
 fn main() {
     // INFO: Initialize the graph with data.
-    let mut graph: VeloxGraph<u32, f64> = VeloxGraph::new();
+    let mut graph: VeloxGraph<
+        usize,    // NodeIdT: Size for each node id.
+        u32,      // NodeT
+        f64,      // ConnectionT
+    > = VeloxGraph::new();
     let node_id0 = graph.node_create(634);
     let node_id1 = graph.node_create(43);
     graph.nodes_connection_set(node_id0, node_id1, 5.24).unwrap();
@@ -64,7 +72,7 @@ fn main() {
     graph.save(file_path).unwrap();
     
     // INFO: Load the graph back from file.
-    let mut loaded_graph: VeloxGraph<u32, f64> = VeloxGraph::load(file_path).unwrap();
+    let mut loaded_graph: VeloxGraph<usize, u32, f64> = VeloxGraph::load(file_path).unwrap();
     println!("num_entries {}", loaded_graph.num_entries);
 
     // INFO: Get a mutable reference to that node.
@@ -95,7 +103,11 @@ struct ConnData {
 
 fn main() {
     // INFO: Initialize the graph.
-    let mut graph: VeloxGraph<NodeData, ConnData> = VeloxGraph::new();
+    let mut graph: VeloxGraph<
+        usize,      // NodeIdT: Size for each node id.
+        NodeData,   // NodeT
+        ConnData,   // ConnectionT
+    > = VeloxGraph::new();
 
     // INFO: Create your first node.
     let node_id0 = graph.node_create(NodeData { x: 134, y: 351 });
