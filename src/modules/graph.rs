@@ -1,19 +1,34 @@
+use crate::modules::connections_backward::connections_backward_trait::ConnectionsBackward;
+use crate::modules::connections_forward::connections_forward_trait::ConnectionsForward;
 use crate::modules::error::VeloxGraphError;
 use crate::modules::graph_settings::VeloxGraghSettings;
-use crate::modules::node::Node;
+use crate::modules::nodes::node_trait::{Node, NodePublic};
 use crate::modules::unsigned_int::UnsignedInt;
+
+// use crate::modules::nodes::hash_node::HashNode;
+use crate::modules::nodes::vec_node::VecNode;
 
 use postcard;
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs::File;
 use std::io::{LineWriter, Write};
+use std::marker::PhantomData;
 use std::os::unix::prelude::FileExt;
 
-pub struct VeloxGraph<NodeIdT, NodeT, ConnectionT>
+// Now alias the concrete Container specializations.
+pub type VeloxGraphVec<NodeIdT, NodeDataT, ConnectionDataT> =
+    VeloxGraph<VecNode<NodeIdT, NodeDataT, ConnectionDataT>, NodeIdT, NodeDataT, ConnectionDataT>;
+
+// pub type VeloxGraphHash<NodeIdT, NodeDataT, ConnectionDataT> =
+//     VeloxGraph<HashNode<NodeIdT, NodeDataT, ConnectionDataT>, NodeIdT, NodeDataT, ConnectionDataT>;
+
+pub struct VeloxGraph<NodeT, NodeIdT, NodeDataT, ConnectionDataT>
 where
+    NodeT:
+        Node<NodeIdT, NodeDataT, ConnectionDataT> + NodePublic<NodeIdT, NodeDataT, ConnectionDataT>,
     NodeIdT: UnsignedInt,
-    NodeT: Clone + Serialize + DeserializeOwned,
-    ConnectionT: Clone + Serialize + DeserializeOwned,
+    NodeDataT: Clone + Serialize + DeserializeOwned,
+    ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
     #[allow(dead_code)]
     settings: VeloxGraghSettings,
@@ -22,15 +37,23 @@ where
     // latest_available_slot: usize,
     pub num_entries: usize,
     // num_used_slots: usize,
-    pub(crate) nodes_vector: Vec<Option<Node<NodeIdT, NodeT, ConnectionT>>>,
+    pub(crate) nodes_vector: Vec<Option<NodeT>>,
     pub(crate) empty_slots: Vec<usize>,
+
+    // PhantomData to "use" the other generics.
+    _phantom_id: PhantomData<NodeIdT>,
+    _phantom_node_data: PhantomData<NodeDataT>,
+    _phantom_conn_data: PhantomData<ConnectionDataT>,
 }
 
-impl<NodeIdT, NodeT, ConnectionT> VeloxGraph<NodeIdT, NodeT, ConnectionT>
+impl<NodeT, NodeIdT, NodeDataT, ConnectionDataT>
+    VeloxGraph<NodeT, NodeIdT, NodeDataT, ConnectionDataT>
 where
+    NodeT:
+        Node<NodeIdT, NodeDataT, ConnectionDataT> + NodePublic<NodeIdT, NodeDataT, ConnectionDataT>,
     NodeIdT: UnsignedInt,
-    NodeT: Clone + Serialize + DeserializeOwned,
-    ConnectionT: Clone + Serialize + DeserializeOwned,
+    NodeDataT: Clone + Serialize + DeserializeOwned,
+    ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
     /// Initialize the graph.
     ///
@@ -54,19 +77,23 @@ where
     /// // INFO: Initialize the graph with types NodeData, for nodes, and ConnData, for connections.
     /// let mut graph: VeloxGraph<
     ///     usize,      // NodeIdT: Size for each node id.
-    ///     NodeData,   // NodeT
-    ///     ConnData,   // ConnectionT
+    ///     NodeData,   // NodeDataT
+    ///     ConnData,   // ConnectionDataT
     /// > = VeloxGraph::new();
     /// assert_eq!(graph.num_entries, 0);
     /// ```
-    pub fn new() -> VeloxGraph<NodeIdT, NodeT, ConnectionT> {
+    pub fn new() -> Self {
         let settings = VeloxGraghSettings::new();
 
-        VeloxGraph {
+        Self {
             settings,
             num_entries: 0,
             nodes_vector: Vec::new(),
             empty_slots: Vec::new(),
+
+            _phantom_id: PhantomData,
+            _phantom_node_data: PhantomData,
+            _phantom_conn_data: PhantomData,
         }
     }
 
@@ -78,8 +105,8 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
-    ///     u32,      // NodeT
-    ///     f64,      // ConnectionT
+    ///     u32,      // NodeDataT
+    ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
     ///
     /// // INFO: Create your first nodes.
@@ -88,7 +115,7 @@ where
     ///
     /// assert_eq!(graph.num_entries, 2);
     /// ```
-    pub fn node_create(&mut self, node_data: NodeT) -> usize {
+    pub fn node_create(&mut self, node_data: NodeDataT) -> usize {
         // let new_node_option = NodeOption {
         //     is_used: SLOT_USED,
         //     node: Node::new(0, node_data),
@@ -110,7 +137,7 @@ where
 
         if let Some(node) = &mut self.nodes_vector[new_node_id] {
             let new_node_id_generic = NodeIdT::from_usize(new_node_id);
-            node.node_id = new_node_id_generic;
+            *node.node_id() = new_node_id_generic;
         }
 
         new_node_id
@@ -124,8 +151,8 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
-    ///     u32,      // NodeT
-    ///     f64,      // ConnectionT
+    ///     u32,      // NodeDataT
+    ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
     ///
     /// // INFO: Create a node.
@@ -141,10 +168,7 @@ where
     ///
     /// assert_eq!(node.data, 9);
     /// ```
-    pub fn node_get<'a>(
-        &'a mut self,
-        node_id: usize,
-    ) -> Result<&'a mut Node<NodeIdT, NodeT, ConnectionT>, VeloxGraphError> {
+    pub fn node_get<'a>(&'a mut self, node_id: usize) -> Result<&'a mut NodeT, VeloxGraphError> {
         if node_id >= self.nodes_vector.len() {
             return Err(VeloxGraphError::SlotNotAllocated(node_id));
         }
@@ -175,8 +199,8 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
-    ///     u32,      // NodeT
-    ///     f64,      // ConnectionT
+    ///     u32,      // NodeDataT
+    ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
     ///
     /// // INFO: Create a node.
@@ -189,10 +213,11 @@ where
     /// assert_eq!(graph.num_entries, 0);
     /// ```
     pub fn node_delete(&mut self, node_id_to_delete: usize) -> Result<(), VeloxGraphError> {
-        let node_to_delete = self.node_get(node_id_to_delete)?.clone();
+        let mut node_to_delete = self.node_get(node_id_to_delete)?.clone();
 
         node_to_delete
-            .connections_backward
+            .connections_backward()
+            .data()
             // .clone()
             .iter()
             .for_each(|&connection_node_id| {
@@ -203,13 +228,13 @@ where
             });
 
         node_to_delete
-            .connections_forward
-            .data_vec
+            .connections_forward()
+            .data()
             // .clone()
             .iter()
             .for_each(|connection| {
                 // let node = &mut self.nodes_vector[*connection_node_id].node;
-                let connection_node_id = connection.node_id.to_usize();
+                let connection_node_id = connection.node_id().to_usize();
                 let node = self.node_get(connection_node_id).unwrap();
                 node.connection_backward_delete(node_id_to_delete);
             });
@@ -236,8 +261,8 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
-    ///     u32,      // NodeT
-    ///     f64,      // ConnectionT
+    ///     u32,      // NodeDataT
+    ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
     ///
     /// // INFO: Create example nodes.
@@ -256,7 +281,7 @@ where
         &mut self,
         first_node_id: usize,
         second_node_id: usize,
-        connection_data: ConnectionT,
+        connection_data: ConnectionDataT,
     ) -> Result<(), VeloxGraphError> {
         // INFO: check if both nodes exist, then create connection.
         let _second_node = self.node_get(second_node_id)?;
@@ -278,8 +303,8 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
-    ///     u32,      // NodeT
-    ///     f64,      // ConnectionT
+    ///     u32,      // NodeDataT
+    ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
     ///
     /// // INFO: Create example nodes.
@@ -323,8 +348,8 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
-    ///     u32,      // NodeT
-    ///     f64,      // ConnectionT
+    ///     u32,      // NodeDataT
+    ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
     ///
     /// // INFO: Create example nodes.
@@ -374,15 +399,13 @@ where
     /// // INFO: Load the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
-    ///     u32,      // NodeT
-    ///     f64,      // ConnectionT
+    ///     u32,      // NodeDataT
+    ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::load("some_file.vg".to_string()).unwrap();
     /// println!("num_entries {}", graph.num_entries);
     /// ```
-    pub fn load(
-        file_path: String,
-    ) -> Result<VeloxGraph<NodeIdT, NodeT, ConnectionT>, VeloxGraphError> {
-        let mut new_graph = VeloxGraph::<NodeIdT, NodeT, ConnectionT>::new();
+    pub fn load(file_path: String) -> Result<Self, VeloxGraphError> {
+        let mut new_graph = Self::new();
 
         let file = File::open(file_path)?;
 
@@ -420,8 +443,7 @@ where
             file.read_at(&mut raw_data, start_byte)?;
             start_byte += len as u64;
 
-            let (node_option, _len): (Option<Node<NodeIdT, NodeT, ConnectionT>>, usize) =
-                postcard::from_bytes(&raw_data[..])?;
+            let (node_option, _len): (Option<NodeT>, usize) = postcard::from_bytes(&raw_data[..])?;
 
             if let Some(_node) = &node_option {
                 new_graph.num_entries += 1;

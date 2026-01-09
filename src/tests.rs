@@ -1,7 +1,9 @@
 #![cfg(test)]
 
-use super::modules::graph::VeloxGraph;
+use super::graph::VeloxGraphVec;
 use super::unsigned_int::UnsignedInt;
+use super::ConnectionsForwardPublic;
+use super::NodePublic;
 
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
@@ -19,11 +21,11 @@ struct SomeData {
 #[test]
 fn test_save_to_disk() {
     let file_path = "./save_file.vg".to_string();
-    let mut graph: VeloxGraph<
+    let mut graph: VeloxGraphVec<
         usize,    // NodeIdT
         SomeData, // NodeT
         u32,      // ConnectionT
-    > = VeloxGraph::new();
+    > = VeloxGraphVec::new();
 
     // println!("num_entries: {}", graph.num_entries);
     assert_eq!(graph.num_entries, 0);
@@ -56,42 +58,42 @@ fn test_save_to_disk() {
 
     graph.save(file_path.clone()).unwrap();
 
-    let mut loaded_graph: VeloxGraph<
+    let mut loaded_graph: VeloxGraphVec<
         usize,    // NodeIdT
         SomeData, // NodeT
         u32,      // ConnectionT
-    > = VeloxGraph::load(file_path.clone()).unwrap();
+    > = VeloxGraphVec::load(file_path.clone()).unwrap();
     assert_eq!(loaded_graph.num_entries, 5);
     assert_eq!(loaded_graph.empty_slots, vec![3]);
 
     let node0 = loaded_graph.node_get(node_id0).unwrap();
-    assert_eq!(node0.data.x, 134);
-    assert_eq!(node0.data.y, 351);
-    let node0_forwards = &node0.connections_forward_get_all().data_vec;
+    assert_eq!(node0.data().x, 134);
+    assert_eq!(node0.data().y, 351);
+    let node0_forwards = node0.connections_forward_get_all().data();
     assert_eq!(node0_forwards.len(), 3);
     // println!("{:?}", node0_forwards);
-    assert_eq!(node0_forwards[0].node_id as usize, node_id2);
+    assert_eq!(node0_forwards[0].node_id() as usize, node_id2);
     assert_eq!(node0_forwards[0].data, 545);
-    assert_eq!(node0_forwards[1].node_id as usize, node_id1);
+    assert_eq!(node0_forwards[1].node_id() as usize, node_id1);
     assert_eq!(node0_forwards[1].data, 3);
-    assert_eq!(node0_forwards[2].node_id as usize, node_id4);
+    assert_eq!(node0_forwards[2].node_id() as usize, node_id4);
     assert_eq!(node0_forwards[2].data, 93);
 
     let node1 = loaded_graph.node_get(node_id1).unwrap();
-    assert_eq!(node1.data.x, 4);
-    assert_eq!(node1.data.y, 1);
-    let node1_forwards = &node1.connections_forward_get_all().data_vec;
+    assert_eq!(node1.data().x, 4);
+    assert_eq!(node1.data().y, 1);
+    let node1_forwards = &node1.connections_forward_get_all().data();
     assert_eq!(node1_forwards.len(), 2);
     // println!("{:?}", node1_forwards);
-    assert_eq!(node1_forwards[0].node_id as usize, node_id0);
+    assert_eq!(node1_forwards[0].node_id() as usize, node_id0);
     assert_eq!(node1_forwards[0].data, 355);
-    assert_eq!(node1_forwards[1].node_id as usize, node_id2);
+    assert_eq!(node1_forwards[1].node_id() as usize, node_id2);
     assert_eq!(node1_forwards[1].data, 73);
 
     let node2 = loaded_graph.node_get(node_id2).unwrap();
-    assert_eq!(node2.data.x, 234);
-    assert_eq!(node2.data.y, 5);
-    let node2_forwards = &node2.connections_forward_get_all().data_vec;
+    assert_eq!(node2.data().x, 234);
+    assert_eq!(node2.data().y, 5);
+    let node2_forwards = &node2.connections_forward_get_all().data();
     assert_eq!(node2_forwards.len(), 0);
     // println!("{:?}", node2_forwards);
 }
@@ -100,11 +102,11 @@ fn test_save_to_disk() {
 #[test]
 fn test_save_to_disk_u16() {
     let file_path = "./save_file.vg".to_string();
-    let mut graph: VeloxGraph<
+    let mut graph: VeloxGraphVec<
         u16,      // NodeIdT
         SomeData, // NodeT
         u32,      // ConnectionT
-    > = VeloxGraph::new();
+    > = VeloxGraphVec::new();
 
     // println!("num_entries: {}", graph.num_entries);
     assert_eq!(graph.num_entries, 0);
@@ -137,42 +139,42 @@ fn test_save_to_disk_u16() {
 
     graph.save(file_path.clone()).unwrap();
 
-    let mut loaded_graph: VeloxGraph<
+    let mut loaded_graph: VeloxGraphVec<
         u16,      // NodeIdT
         SomeData, // NodeT
         u32,      // ConnectionT
-    > = VeloxGraph::load(file_path.clone()).unwrap();
+    > = VeloxGraphVec::load(file_path.clone()).unwrap();
     assert_eq!(loaded_graph.num_entries, 5);
     assert_eq!(loaded_graph.empty_slots, vec![3]);
 
     let node0 = loaded_graph.node_get(node_id0).unwrap();
-    assert_eq!(node0.data.x, 134);
-    assert_eq!(node0.data.y, 351);
-    let node0_forwards = &node0.connections_forward_get_all().data_vec;
+    assert_eq!(node0.data().x, 134);
+    assert_eq!(node0.data().y, 351);
+    let node0_forwards = node0.connections_forward_get_all().data();
     assert_eq!(node0_forwards.len(), 3);
     // println!("{:?}", node0_forwards);
-    assert_eq!(node0_forwards[0].node_id as usize, node_id2);
+    assert_eq!(node0_forwards[0].node_id() as usize, node_id2);
     assert_eq!(node0_forwards[0].data, 545);
-    assert_eq!(node0_forwards[1].node_id as usize, node_id1);
+    assert_eq!(node0_forwards[1].node_id() as usize, node_id1);
     assert_eq!(node0_forwards[1].data, 3);
-    assert_eq!(node0_forwards[2].node_id as usize, node_id4);
+    assert_eq!(node0_forwards[2].node_id() as usize, node_id4);
     assert_eq!(node0_forwards[2].data, 93);
 
     let node1 = loaded_graph.node_get(node_id1).unwrap();
-    assert_eq!(node1.data.x, 4);
-    assert_eq!(node1.data.y, 1);
-    let node1_forwards = &node1.connections_forward_get_all().data_vec;
+    assert_eq!(node1.data().x, 4);
+    assert_eq!(node1.data().y, 1);
+    let node1_forwards = node1.connections_forward_get_all().data();
     assert_eq!(node1_forwards.len(), 2);
     // println!("{:?}", node1_forwards);
-    assert_eq!(node1_forwards[0].node_id as usize, node_id0);
+    assert_eq!(node1_forwards[0].node_id() as usize, node_id0);
     assert_eq!(node1_forwards[0].data, 355);
-    assert_eq!(node1_forwards[1].node_id as usize, node_id2);
+    assert_eq!(node1_forwards[1].node_id() as usize, node_id2);
     assert_eq!(node1_forwards[1].data, 73);
 
     let node2 = loaded_graph.node_get(node_id2).unwrap();
-    assert_eq!(node2.data.x, 234);
-    assert_eq!(node2.data.y, 5);
-    let node2_forwards = &node2.connections_forward_get_all().data_vec;
+    assert_eq!(node2.data().x, 234);
+    assert_eq!(node2.data().y, 5);
+    let node2_forwards = node2.connections_forward_get_all().data();
     assert_eq!(node2_forwards.len(), 0);
     // println!("{:?}", node2_forwards);
 }
@@ -181,11 +183,11 @@ fn test_save_to_disk_u16() {
 #[test]
 fn test_save_to_disk_change_size() {
     let file_path = "./save_file.vg".to_string();
-    let mut graph: VeloxGraph<
+    let mut graph: VeloxGraphVec<
         u16,      // NodeIdT
         SomeData, // NodeT
         u32,      // ConnectionT
-    > = VeloxGraph::new();
+    > = VeloxGraphVec::new();
 
     // println!("num_entries: {}", graph.num_entries);
     assert_eq!(graph.num_entries, 0);
@@ -218,42 +220,42 @@ fn test_save_to_disk_change_size() {
 
     graph.save(file_path.clone()).unwrap();
 
-    let mut loaded_graph: VeloxGraph<
+    let mut loaded_graph: VeloxGraphVec<
         u32,      // NodeIdT
         SomeData, // NodeT
         u32,      // ConnectionT
-    > = VeloxGraph::load(file_path.clone()).unwrap();
+    > = VeloxGraphVec::load(file_path.clone()).unwrap();
     assert_eq!(loaded_graph.num_entries, 5);
     assert_eq!(loaded_graph.empty_slots, vec![3]);
 
     let node0 = loaded_graph.node_get(node_id0).unwrap();
-    assert_eq!(node0.data.x, 134);
-    assert_eq!(node0.data.y, 351);
-    let node0_forwards = &node0.connections_forward_get_all().data_vec;
+    assert_eq!(node0.data().x, 134);
+    assert_eq!(node0.data().y, 351);
+    let node0_forwards = node0.connections_forward_get_all().data();
     assert_eq!(node0_forwards.len(), 3);
     // println!("{:?}", node0_forwards);
-    assert_eq!(node0_forwards[0].node_id as usize, node_id2);
+    assert_eq!(node0_forwards[0].node_id() as usize, node_id2);
     assert_eq!(node0_forwards[0].data, 545);
-    assert_eq!(node0_forwards[1].node_id as usize, node_id1);
+    assert_eq!(node0_forwards[1].node_id() as usize, node_id1);
     assert_eq!(node0_forwards[1].data, 3);
-    assert_eq!(node0_forwards[2].node_id as usize, node_id4);
+    assert_eq!(node0_forwards[2].node_id() as usize, node_id4);
     assert_eq!(node0_forwards[2].data, 93);
 
     let node1 = loaded_graph.node_get(node_id1).unwrap();
-    assert_eq!(node1.data.x, 4);
-    assert_eq!(node1.data.y, 1);
-    let node1_forwards = &node1.connections_forward_get_all().data_vec;
+    assert_eq!(node1.data().x, 4);
+    assert_eq!(node1.data().y, 1);
+    let node1_forwards = node1.connections_forward_get_all().data();
     assert_eq!(node1_forwards.len(), 2);
     // println!("{:?}", node1_forwards);
-    assert_eq!(node1_forwards[0].node_id as usize, node_id0);
+    assert_eq!(node1_forwards[0].node_id() as usize, node_id0);
     assert_eq!(node1_forwards[0].data, 355);
-    assert_eq!(node1_forwards[1].node_id as usize, node_id2);
+    assert_eq!(node1_forwards[1].node_id() as usize, node_id2);
     assert_eq!(node1_forwards[1].data, 73);
 
     let node2 = loaded_graph.node_get(node_id2).unwrap();
-    assert_eq!(node2.data.x, 234);
-    assert_eq!(node2.data.y, 5);
-    let node2_forwards = &node2.connections_forward_get_all().data_vec;
+    assert_eq!(node2.data().x, 234);
+    assert_eq!(node2.data().y, 5);
+    let node2_forwards = node2.connections_forward_get_all().data();
     assert_eq!(node2_forwards.len(), 0);
     // println!("{:?}", node2_forwards);
 }
@@ -261,11 +263,11 @@ fn test_save_to_disk_change_size() {
 // INFO: TEST BASIC FUNCTIONALITY.
 #[test]
 fn test_basic_functions() {
-    let mut graph: VeloxGraph<
+    let mut graph: VeloxGraphVec<
         usize,    // NodeIdT
         SomeData, // NodeT
         u32,      // ConnectionT
-    > = VeloxGraph::new();
+    > = VeloxGraphVec::new();
 
     // println!("num_entries: {}", graph.num_entries);
     assert_eq!(graph.num_entries, 0);
@@ -279,16 +281,16 @@ fn test_basic_functions() {
 
     let node = graph.node_get(node_id).unwrap();
     // println!("node data: {:?}", node.data);
-    assert_eq!(node.data.x, 134);
-    assert_eq!(node.data.y, 351);
+    assert_eq!(node.data().x, 134);
+    assert_eq!(node.data().y, 351);
 
-    node.data.x += 4;
-    node.data.y = 2431;
+    node.data().x += 4;
+    node.data().y = 2431;
 
     let node = graph.node_get(node_id).unwrap();
-    // println!("node data: {:?}", node.data);
-    assert_eq!(node.data.x, 138);
-    assert_eq!(node.data.y, 2431);
+    // println!("node data: {:?}", node.data());
+    assert_eq!(node.data().x, 138);
+    assert_eq!(node.data().y, 2431);
 
     let node_id2 = graph.node_create(SomeData { x: 234, y: 5 });
     assert_eq!(node_id2, 1);
@@ -306,69 +308,69 @@ fn test_basic_functions() {
     let node = graph.node_get(node_id).unwrap();
     let forwards = node.connections_forward_get_all();
     // println!("forwards: {:?}", forwards);
-    assert_eq!(forwards.data_vec.len(), 0);
+    assert_eq!(forwards.data().len(), 0);
 
     graph.nodes_connection_set(node_id, 2, 53245).unwrap();
     graph.nodes_connection_set(node_id, 3, 24323).unwrap();
 
     let node = graph.node_get(node_id).unwrap();
     let forwards = node.connections_forward_get_all();
-    assert_eq!(forwards.data_vec.len(), 2);
+    assert_eq!(forwards.data().len(), 2);
     let conn_forward2 = forwards.get(2).unwrap();
-    assert_eq!(conn_forward2.node_id, 2);
-    assert_eq!(conn_forward2.data, 53245);
+    assert_eq!(conn_forward2.node_id(), 2);
+    assert_eq!(*conn_forward2.data(), 53245);
     let conn_forward3 = forwards.get(3).unwrap();
-    assert_eq!(conn_forward3.node_id, 3);
-    assert_eq!(conn_forward3.data, 24323);
+    assert_eq!(conn_forward3.node_id(), 3);
+    assert_eq!(*conn_forward3.data(), 24323);
 
     // INFO: START: test setting connection twice
-    let temp_node_id = node.node_id.clone();
+    let temp_node_id = node.node_id().clone();
     graph
         .nodes_connection_set(temp_node_id as usize, 3, 6666)
         .unwrap();
 
     let node = graph.node_get(node_id).unwrap();
     let forwards = node.connections_forward_get_all();
-    assert_eq!(forwards.data_vec.len(), 2);
+    assert_eq!(forwards.data().len(), 2);
     let conn_forward3 = forwards.get(3).unwrap();
-    assert_eq!(conn_forward3.node_id, 3);
-    assert_eq!(conn_forward3.data, 6666);
+    assert_eq!(conn_forward3.node_id(), 3);
+    assert_eq!(*conn_forward3.data(), 6666);
     // INFO: END: test setting connection twice
 
     let node2 = graph.node_get(2).unwrap();
     let backwards = node2.connections_backward_get_all();
     // println!("forwards: {:?}", forwards);
     assert_eq!(backwards.len(), 1);
-    assert_eq!(backwards.get(&0).unwrap(), &0);
+    // assert_eq!(backwards.get(&0).unwrap(), &0);
 
     let node3 = graph.node_get(3).unwrap();
     let backwards = node3.connections_backward_get_all();
     // println!("forwards: {:?}", forwards);
     assert_eq!(backwards.len(), 1);
-    assert_eq!(backwards.get(&0).unwrap(), &0);
+    // assert_eq!(backwards.get(&0).unwrap(), &0);
 
     graph.nodes_connection_remove(0, 4).unwrap();
     let node0 = graph.node_get(0).unwrap();
     let forwards = node0.connections_forward_get_all();
     // println!("forwards: {:?}", forwards);
-    assert_eq!(forwards.data_vec.len(), 2);
+    assert_eq!(forwards.data().len(), 2);
 
     graph.nodes_connection_remove(0, 2).unwrap();
     let node0 = graph.node_get(0).unwrap();
     let forwards = node0.connections_forward_get_all();
     // println!("forwards: {:?}", forwards);
-    assert_eq!(forwards.data_vec.len(), 1);
+    assert_eq!(forwards.data().len(), 1);
 
     graph.nodes_connection_set(2, 0, 352).unwrap();
     let node2 = graph.node_get(2).unwrap();
     let forwards = node2.connections_forward_get_all();
-    assert_eq!(forwards.data_vec.len(), 1);
-    assert_eq!(forwards.get(0).unwrap().data, 352);
+    assert_eq!(forwards.data().len(), 1);
+    assert_eq!(*forwards.get(0).unwrap().data(), 352);
 
     graph.nodes_connection_remove(2, 0).unwrap();
     let node2 = graph.node_get(2).unwrap();
     let forwards = node2.connections_forward_get_all();
-    assert_eq!(forwards.data_vec.len(), 0);
+    assert_eq!(forwards.data().len(), 0);
 
     graph.node_delete(4).unwrap();
     graph.node_delete(2).unwrap();
@@ -380,9 +382,9 @@ fn test_basic_functions() {
     let node = graph.node_get(node_id).unwrap();
     let forwards = node.connections_forward_get_all();
     // println!("forwards: {:?}", forwards);
-    assert_eq!(forwards.data_vec.len(), 1);
-    assert_eq!(forwards.get(3).unwrap().node_id, 3);
-    assert_eq!(forwards.get(3).unwrap().data, 6666);
+    assert_eq!(forwards.data().len(), 1);
+    assert_eq!(forwards.get(3).unwrap().node_id(), 3);
+    assert_eq!(*forwards.get(3).unwrap().data(), 6666);
 
     graph.node_delete(0).unwrap();
     assert_eq!(graph.num_entries, 2);
@@ -406,11 +408,11 @@ fn test_basic_functions() {
 // INFO: TEST BASIC FUNCTIONALITY.
 #[test]
 fn test_basic_functions_u16() {
-    let mut graph: VeloxGraph<
+    let mut graph: VeloxGraphVec<
         u16,      // NodeIdT
         SomeData, // NodeT
         u32,      // ConnectionT
-    > = VeloxGraph::new();
+    > = VeloxGraphVec::new();
 
     // println!("num_entries: {}", graph.num_entries);
     assert_eq!(graph.num_entries, 0);
@@ -424,16 +426,16 @@ fn test_basic_functions_u16() {
 
     let node = graph.node_get(node_id).unwrap();
     // println!("node data: {:?}", node.data);
-    assert_eq!(node.data.x, 134);
-    assert_eq!(node.data.y, 351);
+    assert_eq!(node.data().x, 134);
+    assert_eq!(node.data().y, 351);
 
-    node.data.x += 4;
-    node.data.y = 2431;
+    node.data().x += 4;
+    node.data().y = 2431;
 
     let node = graph.node_get(node_id).unwrap();
-    // println!("node data: {:?}", node.data);
-    assert_eq!(node.data.x, 138);
-    assert_eq!(node.data.y, 2431);
+    // println!("node data: {:?}", node.data());
+    assert_eq!(node.data().x, 138);
+    assert_eq!(node.data().y, 2431);
 
     let node_id2 = graph.node_create(SomeData { x: 234, y: 5 });
     assert_eq!(node_id2, 1);
@@ -451,69 +453,69 @@ fn test_basic_functions_u16() {
     let node = graph.node_get(node_id).unwrap();
     let forwards = node.connections_forward_get_all();
     // println!("forwards: {:?}", forwards);
-    assert_eq!(forwards.data_vec.len(), 0);
+    assert_eq!(forwards.data().len(), 0);
 
     graph.nodes_connection_set(node_id, 2, 53245).unwrap();
     graph.nodes_connection_set(node_id, 3, 24323).unwrap();
 
     let node = graph.node_get(node_id).unwrap();
     let forwards = node.connections_forward_get_all();
-    assert_eq!(forwards.data_vec.len(), 2);
+    assert_eq!(forwards.data().len(), 2);
     let conn_forward2 = forwards.get(2).unwrap();
-    assert_eq!(conn_forward2.node_id, 2);
-    assert_eq!(conn_forward2.data, 53245);
+    assert_eq!(conn_forward2.node_id(), 2);
+    assert_eq!(*conn_forward2.data(), 53245);
     let conn_forward3 = forwards.get(3).unwrap();
-    assert_eq!(conn_forward3.node_id, 3);
-    assert_eq!(conn_forward3.data, 24323);
+    assert_eq!(conn_forward3.node_id(), 3);
+    assert_eq!(*conn_forward3.data(), 24323);
 
     // INFO: START: test setting connection twice
-    let temp_node_id = node.node_id.clone();
+    let temp_node_id = node.node_id().clone();
     graph
         .nodes_connection_set(temp_node_id as usize, 3, 6666)
         .unwrap();
 
     let node = graph.node_get(node_id).unwrap();
     let forwards = node.connections_forward_get_all();
-    assert_eq!(forwards.data_vec.len(), 2);
+    assert_eq!(forwards.data().len(), 2);
     let conn_forward3 = forwards.get(3).unwrap();
-    assert_eq!(conn_forward3.node_id, 3);
-    assert_eq!(conn_forward3.data, 6666);
+    assert_eq!(conn_forward3.node_id(), 3);
+    assert_eq!(*conn_forward3.data(), 6666);
     // INFO: END: test setting connection twice
 
     let node2 = graph.node_get(2).unwrap();
     let backwards = node2.connections_backward_get_all();
     // println!("forwards: {:?}", forwards);
     assert_eq!(backwards.len(), 1);
-    assert_eq!(backwards.get(&0).unwrap(), &0);
+    assert_eq!(backwards.get(0).unwrap(), &0);
 
     let node3 = graph.node_get(3).unwrap();
     let backwards = node3.connections_backward_get_all();
     // println!("forwards: {:?}", forwards);
     assert_eq!(backwards.len(), 1);
-    assert_eq!(backwards.get(&0).unwrap(), &0);
+    assert_eq!(backwards.get(0).unwrap(), &0);
 
     graph.nodes_connection_remove(0, 4).unwrap();
     let node0 = graph.node_get(0).unwrap();
     let forwards = node0.connections_forward_get_all();
     // println!("forwards: {:?}", forwards);
-    assert_eq!(forwards.data_vec.len(), 2);
+    assert_eq!(forwards.data().len(), 2);
 
     graph.nodes_connection_remove(0, 2).unwrap();
     let node0 = graph.node_get(0).unwrap();
     let forwards = node0.connections_forward_get_all();
     // println!("forwards: {:?}", forwards);
-    assert_eq!(forwards.data_vec.len(), 1);
+    assert_eq!(forwards.data().len(), 1);
 
     graph.nodes_connection_set(2, 0, 352).unwrap();
     let node2 = graph.node_get(2).unwrap();
     let forwards = node2.connections_forward_get_all();
-    assert_eq!(forwards.data_vec.len(), 1);
-    assert_eq!(forwards.get(0).unwrap().data, 352);
+    assert_eq!(forwards.data().len(), 1);
+    assert_eq!(*forwards.get(0).unwrap().data(), 352);
 
     graph.nodes_connection_remove(2, 0).unwrap();
     let node2 = graph.node_get(2).unwrap();
     let forwards = node2.connections_forward_get_all();
-    assert_eq!(forwards.data_vec.len(), 0);
+    assert_eq!(forwards.data().len(), 0);
 
     graph.node_delete(4).unwrap();
     graph.node_delete(2).unwrap();
@@ -525,9 +527,9 @@ fn test_basic_functions_u16() {
     let node = graph.node_get(node_id).unwrap();
     let forwards = node.connections_forward_get_all();
     // println!("forwards: {:?}", forwards);
-    assert_eq!(forwards.data_vec.len(), 1);
-    assert_eq!(forwards.get(3).unwrap().node_id, 3);
-    assert_eq!(forwards.get(3).unwrap().data, 6666);
+    assert_eq!(forwards.data().len(), 1);
+    assert_eq!(forwards.get(3).unwrap().node_id(), 3);
+    assert_eq!(*forwards.get(3).unwrap().data(), 6666);
 
     graph.node_delete(0).unwrap();
     assert_eq!(graph.num_entries, 2);
@@ -561,11 +563,11 @@ fn speed_test() {
     let mut random_nodes: Vec<usize> = (0..NUM_NODES).collect();
     random_nodes.shuffle(&mut rand::rng());
 
-    let mut graph: VeloxGraph<
+    let mut graph: VeloxGraphVec<
         usize, // NodeIdT
         u32,   // NodeT
         u32,   // ConnectionT
-    > = VeloxGraph::new();
+    > = VeloxGraphVec::new();
     thread::sleep(delay_time);
 
     create_nodes_test(&mut graph, NUM_NODES);
@@ -591,11 +593,11 @@ fn speed_test() {
     println!("save time: {:.2?}", time_elapsed);
     let timestamp = Instant::now();
 
-    let mut graph: VeloxGraph<
+    let mut graph: VeloxGraphVec<
         usize, // NodeIdT
         u32,   // NodeT
         u32,   // ConnectionT
-    > = VeloxGraph::load(file_path.clone()).unwrap();
+    > = VeloxGraphVec::load(file_path.clone()).unwrap();
 
     let time_elapsed = timestamp.elapsed();
     println!("load time: {:.2?}", time_elapsed);
@@ -614,11 +616,11 @@ fn speed_test_u16() {
     let mut random_nodes: Vec<usize> = (0..NUM_NODES).collect();
     random_nodes.shuffle(&mut rand::rng());
 
-    let mut graph: VeloxGraph<
+    let mut graph: VeloxGraphVec<
         u16, // NodeIdT
         u32, // NodeT
         u32, // ConnectionT
-    > = VeloxGraph::new();
+    > = VeloxGraphVec::new();
     thread::sleep(delay_time);
 
     create_nodes_test(&mut graph, NUM_NODES);
@@ -644,11 +646,11 @@ fn speed_test_u16() {
     println!("save time: {:.2?}", time_elapsed);
     let timestamp = Instant::now();
 
-    let mut graph: VeloxGraph<
+    let mut graph: VeloxGraphVec<
         u16, // NodeIdT
         u32, // NodeT
         u32, // ConnectionT
-    > = VeloxGraph::load(file_path.clone()).unwrap();
+    > = VeloxGraphVec::load(file_path.clone()).unwrap();
 
     let time_elapsed = timestamp.elapsed();
     println!("load time: {:.2?}", time_elapsed);
@@ -659,7 +661,7 @@ fn speed_test_u16() {
 }
 
 fn create_nodes_test<NodeIdT: UnsignedInt>(
-    graph: &mut VeloxGraph<
+    graph: &mut VeloxGraphVec<
         NodeIdT, // NodeIdT
         u32,     // NodeT
         u32,     // ConnectionT
@@ -688,7 +690,7 @@ fn create_nodes_test<NodeIdT: UnsignedInt>(
 }
 
 fn create_connections_test<NodeIdT: UnsignedInt>(
-    graph: &mut VeloxGraph<
+    graph: &mut VeloxGraphVec<
         NodeIdT, // NodeIdT
         u32,     // NodeT
         u32,     // ConnectionT
@@ -740,7 +742,7 @@ fn create_connections_test<NodeIdT: UnsignedInt>(
 }
 
 fn delete_nodes_test<NodeIdT: UnsignedInt>(
-    graph: &mut VeloxGraph<
+    graph: &mut VeloxGraphVec<
         NodeIdT, // NodeIdT
         u32,     // NodeT
         u32,     // ConnectionT

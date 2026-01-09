@@ -162,8 +162,9 @@ mod modules;
 pub mod tests;
 
 pub use modules::connection;
+pub use modules::connections_forward::connections_forward_trait::ConnectionsForwardPublic;
 pub use modules::error;
 pub use modules::graph;
 pub use modules::graph_settings;
-pub use modules::node;
+pub use modules::nodes::node_trait::NodePublic;
 pub use modules::unsigned_int;
