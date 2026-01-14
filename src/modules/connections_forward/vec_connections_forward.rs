@@ -1,12 +1,11 @@
-use crate::modules::connection::Connection;
+use crate::modules::connection::ForwardConnection;
 use crate::modules::connections_forward::connections_forward_trait::{
-    ConnectionsForward, ConnectionsForwardPublic,
+    ConnectionsForward, ConnectionsForwardInternal,
 };
 use crate::modules::error::VeloxGraphError;
 use crate::modules::unsigned_int::UnsignedInt;
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound(
@@ -18,8 +17,49 @@ where
     NodeIdT: UnsignedInt,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
-    pub(crate) lookup_hash: HashMap<NodeIdT, NodeIdT>,
-    pub(crate) data: Vec<Connection<NodeIdT, ConnectionDataT>>,
+    data: Vec<ForwardConnection<NodeIdT, ConnectionDataT>>,
+}
+
+impl<NodeIdT, ConnectionDataT> ConnectionsForwardInternal<NodeIdT, ConnectionDataT>
+    for VecConnectionsForward<NodeIdT, ConnectionDataT>
+where
+    NodeIdT: UnsignedInt,
+    ConnectionDataT: Clone + Serialize + DeserializeOwned,
+{
+    fn new() -> Self {
+        Self { data: Vec::new() }
+    }
+
+    fn set(&mut self, node_id_value: usize, connection_data: ConnectionDataT) {
+        let node_id_value = NodeIdT::from_usize(node_id_value);
+        match self
+            .data
+            .iter()
+            .position(|item| item.node_id == node_id_value)
+        {
+            Some(index) => {
+                let connection = &mut self.data[index];
+                connection.data = connection_data;
+            }
+            None => {
+                let new_connection = ForwardConnection::new(node_id_value, connection_data);
+                self.data.push(new_connection)
+            }
+        }
+    }
+
+    fn remove(&mut self, node_id_value: usize) {
+        let node_id_value = NodeIdT::from_usize(node_id_value);
+        //self.remove(&node_id_value);
+
+        if let Some(index) = self
+            .data
+            .iter()
+            .position(|item| item.node_id == node_id_value)
+        {
+            self.data.swap_remove(index);
+        };
+    }
 }
 
 impl<NodeIdT, ConnectionDataT> ConnectionsForward<NodeIdT, ConnectionDataT>
@@ -28,25 +68,7 @@ where
     NodeIdT: UnsignedInt,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
-    fn new() -> Self {
-        Self {
-            lookup_hash: HashMap::new(),
-            data: Vec::new(),
-        }
-    }
-
-    fn data(&self) -> &Vec<Connection<NodeIdT, ConnectionDataT>> {
-        &self.data
-    }
-}
-
-impl<NodeIdT, ConnectionDataT> ConnectionsForwardPublic<NodeIdT, ConnectionDataT>
-    for VecConnectionsForward<NodeIdT, ConnectionDataT>
-where
-    NodeIdT: UnsignedInt,
-    ConnectionDataT: Clone + Serialize + DeserializeOwned,
-{
-    fn data(&self) -> &Vec<Connection<NodeIdT, ConnectionDataT>> {
+    fn data(&self) -> &Vec<ForwardConnection<NodeIdT, ConnectionDataT>> {
         &self.data
     }
 
@@ -83,13 +105,10 @@ where
     fn get<'a>(
         &'a mut self,
         node_id: usize,
-    ) -> Result<&'a mut Connection<NodeIdT, ConnectionDataT>, VeloxGraphError> {
-        let node_id_generic = NodeIdT::from_usize(node_id);
-        match self.lookup_hash.get(&node_id_generic) {
-            Some(&connection_index) => {
-                let connection_index: usize = connection_index.to_usize();
-                Ok(&mut self.data[connection_index])
-            }
+    ) -> Result<&'a mut ForwardConnection<NodeIdT, ConnectionDataT>, VeloxGraphError> {
+        let node_id = NodeIdT::from_usize(node_id);
+        match self.data.iter().position(|item| item.node_id == node_id) {
+            Some(connection_index) => Ok(&mut self.data[connection_index]),
             None => {
                 let node_id: usize = node_id.to_usize();
                 Err(VeloxGraphError::ConnectionNotSet(node_id))

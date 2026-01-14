@@ -1,12 +1,21 @@
-use crate::modules::connections_backward::connections_backward_trait::ConnectionsBackward;
-use crate::modules::connections_forward::connections_forward_trait::ConnectionsForward;
+use crate::modules::connections_backward::connections_backward_trait::{
+    ConnectionsBackward, ConnectionsBackwardInternal,
+};
+use crate::modules::connections_backward::{
+    hash_connections_backward::HashConnectionsBackward,
+    vec_connections_backward::VecConnectionsBackward,
+};
+use crate::modules::connections_forward::connections_forward_trait::{
+    ConnectionsForward, ConnectionsForwardInternal,
+};
+use crate::modules::connections_forward::{
+    hash_connections_forward::HashConnectionsForward,
+    vec_connections_forward::VecConnectionsForward,
+};
 use crate::modules::error::VeloxGraphError;
 use crate::modules::graph_settings::VeloxGraghSettings;
-use crate::modules::nodes::node_trait::{Node, NodePublic};
+use crate::modules::node::Node;
 use crate::modules::unsigned_int::UnsignedInt;
-
-// use crate::modules::nodes::hash_node::HashNode;
-use crate::modules::nodes::vec_node::VecNode;
 
 use postcard;
 use serde::{de::DeserializeOwned, Serialize};
@@ -16,17 +25,29 @@ use std::marker::PhantomData;
 use std::os::unix::prelude::FileExt;
 
 // Now alias the concrete Container specializations.
-pub type VeloxGraphVec<NodeIdT, NodeDataT, ConnectionDataT> =
-    VeloxGraph<VecNode<NodeIdT, NodeDataT, ConnectionDataT>, NodeIdT, NodeDataT, ConnectionDataT>;
+pub type VeloxGraphVec<NodeIdT, NodeDataT, ConnectionDataT> = VeloxGraph<
+    NodeIdT,
+    VecConnectionsForward<NodeIdT, ConnectionDataT>,
+    VecConnectionsBackward<NodeIdT>,
+    NodeDataT,
+    ConnectionDataT,
+>;
 
-// pub type VeloxGraphHash<NodeIdT, NodeDataT, ConnectionDataT> =
-//     VeloxGraph<HashNode<NodeIdT, NodeDataT, ConnectionDataT>, NodeIdT, NodeDataT, ConnectionDataT>;
+pub type VeloxGraphHash<NodeIdT, NodeDataT, ConnectionDataT> = VeloxGraph<
+    NodeIdT,
+    HashConnectionsForward<NodeIdT, ConnectionDataT>,
+    HashConnectionsBackward<NodeIdT>,
+    NodeDataT,
+    ConnectionDataT,
+>;
 
-pub struct VeloxGraph<NodeT, NodeIdT, NodeDataT, ConnectionDataT>
+#[allow(private_bounds)]
+pub struct VeloxGraph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
 where
-    NodeT:
-        Node<NodeIdT, NodeDataT, ConnectionDataT> + NodePublic<NodeIdT, NodeDataT, ConnectionDataT>,
     NodeIdT: UnsignedInt,
+    ConnForwardT: ConnectionsForwardInternal<NodeIdT, ConnectionDataT>
+        + ConnectionsForward<NodeIdT, ConnectionDataT>,
+    ConnBackwardT: ConnectionsBackwardInternal<NodeIdT> + ConnectionsBackward<NodeIdT>,
     NodeDataT: Clone + Serialize + DeserializeOwned,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
@@ -35,9 +56,10 @@ where
 
     // INFO: metedata.
     // latest_available_slot: usize,
-    pub num_entries: usize,
+    num_entries: usize,
     // num_used_slots: usize,
-    pub(crate) nodes_vector: Vec<Option<NodeT>>,
+    pub(crate) nodes_vector:
+        Vec<Option<Node<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>>>,
     pub(crate) empty_slots: Vec<usize>,
 
     // PhantomData to "use" the other generics.
@@ -46,11 +68,13 @@ where
     _phantom_conn_data: PhantomData<ConnectionDataT>,
 }
 
-impl<NodeT, NodeIdT, NodeDataT, ConnectionDataT>
-    VeloxGraph<NodeT, NodeIdT, NodeDataT, ConnectionDataT>
+#[allow(private_bounds)]
+impl<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
+    VeloxGraph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
 where
-    NodeT:
-        Node<NodeIdT, NodeDataT, ConnectionDataT> + NodePublic<NodeIdT, NodeDataT, ConnectionDataT>,
+    ConnForwardT: ConnectionsForwardInternal<NodeIdT, ConnectionDataT>
+        + ConnectionsForward<NodeIdT, ConnectionDataT>,
+    ConnBackwardT: ConnectionsBackwardInternal<NodeIdT> + ConnectionsBackward<NodeIdT>,
     NodeIdT: UnsignedInt,
     NodeDataT: Clone + Serialize + DeserializeOwned,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
@@ -97,6 +121,10 @@ where
         }
     }
 
+    pub fn num_entries(&self) -> usize {
+        self.num_entries
+    }
+
     /// Create nodes.
     ///
     /// # Example
@@ -137,7 +165,7 @@ where
 
         if let Some(node) = &mut self.nodes_vector[new_node_id] {
             let new_node_id_generic = NodeIdT::from_usize(new_node_id);
-            *node.node_id() = new_node_id_generic;
+            node.node_id = new_node_id_generic;
         }
 
         new_node_id
@@ -168,7 +196,13 @@ where
     ///
     /// assert_eq!(node.data, 9);
     /// ```
-    pub fn node_get<'a>(&'a mut self, node_id: usize) -> Result<&'a mut NodeT, VeloxGraphError> {
+    pub fn node_get<'a>(
+        &'a mut self,
+        node_id: usize,
+    ) -> Result<
+        &'a mut Node<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>,
+        VeloxGraphError,
+    > {
         if node_id >= self.nodes_vector.len() {
             return Err(VeloxGraphError::SlotNotAllocated(node_id));
         }
@@ -179,16 +213,6 @@ where
             Some(node) => Ok(node),
             None => return Err(VeloxGraphError::SlotNotUsed(node_id)),
         }
-
-        // if node_option.is_none() {
-        //     return Err(VeloxGraphError::SlotNotUsed(node_id));
-        // }
-
-        // // if node_option.is_used == SLOT_NOT_USED {
-        // //     return Err(VeloxGraphError::SlotNotUsed(node_id));
-        // // }
-
-        // Ok(&mut node_option.node)
     }
 
     /// Delete nodes.
@@ -220,11 +244,11 @@ where
             .data()
             // .clone()
             .iter()
-            .for_each(|&connection_node_id| {
+            .for_each(|connection_node_id| {
                 // let node = &mut self.nodes_vector[*connection_node_id].node;
-                let connection_node_id = connection_node_id.to_usize();
+                let connection_node_id = connection_node_id.node_id.to_usize();
                 let node = self.node_get(connection_node_id).unwrap();
-                node.connection_forward_remove(node_id_to_delete);
+                node.connections_forward().remove(node_id_to_delete);
             });
 
         node_to_delete
@@ -236,7 +260,7 @@ where
                 // let node = &mut self.nodes_vector[*connection_node_id].node;
                 let connection_node_id = connection.node_id().to_usize();
                 let node = self.node_get(connection_node_id).unwrap();
-                node.connection_backward_delete(node_id_to_delete);
+                node.connections_backward.delete(node_id_to_delete);
             });
 
         match node_id_to_delete == self.nodes_vector.len() - 1 {
@@ -287,10 +311,12 @@ where
         let _second_node = self.node_get(second_node_id)?;
         let first_node = self.node_get(first_node_id)?;
 
-        first_node.connection_forward_set(second_node_id, connection_data);
+        first_node
+            .connections_forward()
+            .set(second_node_id, connection_data);
 
         let second_node = self.node_get(second_node_id)?;
-        second_node.connection_backward_create(first_node_id);
+        second_node.connections_backward.create(first_node_id);
 
         Ok(())
     }
@@ -332,10 +358,10 @@ where
         let _second_node = self.node_get(second_node_id)?;
         let first_node = self.node_get(first_node_id)?;
 
-        first_node.connection_forward_remove(second_node_id);
+        first_node.connections_forward().remove(second_node_id);
 
         let second_node = self.node_get(second_node_id)?;
-        second_node.connection_backward_delete(first_node_id);
+        second_node.connections_backward.delete(first_node_id);
 
         Ok(())
     }
@@ -443,7 +469,10 @@ where
             file.read_at(&mut raw_data, start_byte)?;
             start_byte += len as u64;
 
-            let (node_option, _len): (Option<NodeT>, usize) = postcard::from_bytes(&raw_data[..])?;
+            let (node_option, _len): (
+                Option<Node<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>>,
+                usize,
+            ) = postcard::from_bytes(&raw_data[..])?;
 
             if let Some(_node) = &node_option {
                 new_graph.num_entries += 1;

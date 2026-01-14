@@ -3,26 +3,26 @@ use crate::modules::unsigned_int::UnsignedInt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "NodeIdT: UnsignedInt, ConnectionDataT: Serialize",
-    deserialize = "NodeIdT: UnsignedInt, ConnectionDataT: DeserializeOwned"
-))]
-pub struct Connection<NodeIdT, ConnectionDataT>
+#[serde(bound = "
+    NodeIdT: UnsignedInt,
+    ConnectionDataT: Serialize + DeserializeOwned,
+")]
+pub struct ForwardConnection<NodeIdT, ConnectionDataT>
 where
     NodeIdT: UnsignedInt,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
-    node_id: NodeIdT,
+    pub(crate) node_id: NodeIdT,
     pub(crate) data: ConnectionDataT,
 }
 
-impl<NodeIdT, ConnectionDataT> Connection<NodeIdT, ConnectionDataT>
+impl<NodeIdT, ConnectionDataT> ForwardConnection<NodeIdT, ConnectionDataT>
 where
     NodeIdT: UnsignedInt,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
     pub(crate) fn new(node_id: NodeIdT, data: ConnectionDataT) -> Self {
-        Connection { node_id, data }
+        ForwardConnection { node_id, data }
     }
 
     pub fn node_id(&self) -> usize {
@@ -30,5 +30,29 @@ where
     }
     pub fn data(&mut self) -> &ConnectionDataT {
         &mut self.data
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "
+    NodeIdT: UnsignedInt,
+")]
+pub struct BackwardConnection<NodeIdT>
+where
+    NodeIdT: UnsignedInt,
+{
+    pub(crate) node_id: NodeIdT,
+}
+
+impl<NodeIdT> BackwardConnection<NodeIdT>
+where
+    NodeIdT: UnsignedInt,
+{
+    pub(crate) fn new(node_id: NodeIdT) -> Self {
+        BackwardConnection { node_id }
+    }
+
+    pub fn node_id(&self) -> usize {
+        self.node_id.to_usize()
     }
 }

@@ -162,9 +162,10 @@ mod modules;
 pub mod tests;
 
 pub use modules::connection;
-pub use modules::connections_forward::connections_forward_trait::ConnectionsForwardPublic;
+pub use modules::connections_backward::connections_backward_trait::ConnectionsBackward;
+pub use modules::connections_forward::connections_forward_trait::ConnectionsForward;
 pub use modules::error;
 pub use modules::graph;
 pub use modules::graph_settings;
-pub use modules::nodes::node_trait::NodePublic;
+pub use modules::node; // WARNING: Do I need this exposed?
 pub use modules::unsigned_int;
