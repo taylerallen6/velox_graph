@@ -1,13 +1,9 @@
-use crate::modules::connections_backward::connections_backward_trait::{
-    ConnectionsBackward, ConnectionsBackwardInternal,
-};
+use crate::modules::connections_backward::connections_backward_trait::ConnectionsBackward;
 use crate::modules::connections_backward::{
     hash_connections_backward::HashConnectionsBackward,
     vec_connections_backward::VecConnectionsBackward,
 };
-use crate::modules::connections_forward::connections_forward_trait::{
-    ConnectionsForward, ConnectionsForwardInternal,
-};
+use crate::modules::connections_forward::connections_forward_trait::ConnectionsForward;
 use crate::modules::connections_forward::{
     hash_connections_forward::HashConnectionsForward,
     vec_connections_forward::VecConnectionsForward,
@@ -45,9 +41,8 @@ pub type VeloxGraphHash<NodeIdT, NodeDataT, ConnectionDataT> = VeloxGraph<
 pub struct VeloxGraph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
 where
     NodeIdT: UnsignedInt,
-    ConnForwardT: ConnectionsForwardInternal<NodeIdT, ConnectionDataT>
-        + ConnectionsForward<NodeIdT, ConnectionDataT>,
-    ConnBackwardT: ConnectionsBackwardInternal<NodeIdT> + ConnectionsBackward<NodeIdT>,
+    ConnForwardT: ConnectionsForward<NodeIdT, ConnectionDataT>,
+    ConnBackwardT: ConnectionsBackward<NodeIdT>,
     NodeDataT: Clone + Serialize + DeserializeOwned,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
@@ -72,9 +67,8 @@ where
 impl<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
     VeloxGraph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
 where
-    ConnForwardT: ConnectionsForwardInternal<NodeIdT, ConnectionDataT>
-        + ConnectionsForward<NodeIdT, ConnectionDataT>,
-    ConnBackwardT: ConnectionsBackwardInternal<NodeIdT> + ConnectionsBackward<NodeIdT>,
+    ConnForwardT: ConnectionsForward<NodeIdT, ConnectionDataT>,
+    ConnBackwardT: ConnectionsBackward<NodeIdT>,
     NodeIdT: UnsignedInt,
     NodeDataT: Clone + Serialize + DeserializeOwned,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,

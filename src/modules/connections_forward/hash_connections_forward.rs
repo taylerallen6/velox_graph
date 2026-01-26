@@ -1,6 +1,6 @@
 use crate::modules::connection::ForwardConnection;
 use crate::modules::connections_forward::connections_forward_trait::{
-    ConnectionsForward, ConnectionsForwardInternal,
+    private::Sealed, ConnectionsForward, ConnectionsForwardInternal,
 };
 use crate::modules::error::VeloxGraphError;
 use crate::modules::unsigned_int::UnsignedInt;
@@ -20,6 +20,13 @@ where
 {
     pub(crate) lookup_hash: HashMap<NodeIdT, NodeIdT>,
     data: Vec<ForwardConnection<NodeIdT, ConnectionDataT>>,
+}
+
+impl<NodeIdT, ConnectionDataT> Sealed for HashConnectionsForward<NodeIdT, ConnectionDataT>
+where
+    NodeIdT: UnsignedInt,
+    ConnectionDataT: Clone + Serialize + DeserializeOwned,
+{
 }
 
 impl<NodeIdT, ConnectionDataT> ConnectionsForwardInternal<NodeIdT, ConnectionDataT>

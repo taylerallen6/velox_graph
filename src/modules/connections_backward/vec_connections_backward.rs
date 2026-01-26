@@ -1,6 +1,6 @@
 use crate::modules::connection::BackwardConnection;
 use crate::modules::connections_backward::connections_backward_trait::{
-    ConnectionsBackward, ConnectionsBackwardInternal,
+    private::Sealed, ConnectionsBackward, ConnectionsBackwardInternal,
 };
 use crate::modules::unsigned_int::UnsignedInt;
 
@@ -17,6 +17,8 @@ where
 {
     pub(crate) data: Vec<BackwardConnection<NodeIdT>>,
 }
+
+impl<NodeIdT> Sealed for VecConnectionsBackward<NodeIdT> where NodeIdT: UnsignedInt {}
 
 impl<NodeIdT> ConnectionsBackwardInternal<NodeIdT> for VecConnectionsBackward<NodeIdT>
 where

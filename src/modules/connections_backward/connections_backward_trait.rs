@@ -3,8 +3,12 @@ use crate::modules::unsigned_int::UnsignedInt;
 
 use serde::{de::DeserializeOwned, Serialize};
 
-pub(crate) trait ConnectionsBackwardInternal<NodeIdT>:
-    Sized + Serialize + DeserializeOwned + Clone
+pub mod private {
+    pub trait Sealed {}
+}
+
+pub trait ConnectionsBackwardInternal<NodeIdT>:
+    private::Sealed + Sized + Serialize + DeserializeOwned + Clone
 where
     NodeIdT: UnsignedInt,
 {
@@ -13,7 +17,8 @@ where
     fn delete(&mut self, node_id_value: usize);
 }
 
-pub trait ConnectionsBackward<NodeIdT>: Sized + Serialize + DeserializeOwned + Clone
+pub trait ConnectionsBackward<NodeIdT>:
+    ConnectionsBackwardInternal<NodeIdT> + Sized + Serialize + DeserializeOwned + Clone
 where
     NodeIdT: UnsignedInt,
 {

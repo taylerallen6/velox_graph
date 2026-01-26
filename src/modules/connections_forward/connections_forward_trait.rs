@@ -4,8 +4,12 @@ use crate::modules::unsigned_int::UnsignedInt;
 
 use serde::{de::DeserializeOwned, Serialize};
 
-pub(crate) trait ConnectionsForwardInternal<NodeIdT, ConnectionDataT>:
-    Sized + Serialize + DeserializeOwned + Clone
+pub(crate) mod private {
+    pub trait Sealed {}
+}
+
+pub trait ConnectionsForwardInternal<NodeIdT, ConnectionDataT>:
+    private::Sealed + Sized + Serialize + DeserializeOwned + Clone
 where
     NodeIdT: UnsignedInt,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
@@ -16,7 +20,7 @@ where
 }
 
 pub trait ConnectionsForward<NodeIdT, ConnectionDataT>:
-    Sized + Serialize + DeserializeOwned + Clone
+    ConnectionsForwardInternal<NodeIdT, ConnectionDataT> + Sized + Serialize + DeserializeOwned + Clone
 where
     NodeIdT: UnsignedInt,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
