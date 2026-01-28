@@ -10,6 +10,7 @@ use crate::modules::connections_forward::{
 };
 use crate::modules::error::VeloxGraphError;
 use crate::modules::graph_settings::VeloxGraghSettings;
+use crate::modules::graph_trait::{graph_private::GraphSealed, Graph, GraphInternal};
 use crate::modules::node::Node;
 use crate::modules::unsigned_int::UnsignedInt;
 
@@ -63,9 +64,42 @@ where
     _phantom_conn_data: PhantomData<ConnectionDataT>,
 }
 
+impl<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT> GraphSealed
+    for VeloxGraph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
+where
+    ConnForwardT: ConnectionsForward<NodeIdT, ConnectionDataT>,
+    ConnBackwardT: ConnectionsBackward<NodeIdT>,
+    NodeIdT: UnsignedInt,
+    NodeDataT: Clone + Serialize + DeserializeOwned,
+    ConnectionDataT: Clone + Serialize + DeserializeOwned,
+{
+}
+
+impl<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
+    GraphInternal<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
+    for VeloxGraph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
+where
+    ConnForwardT: ConnectionsForward<NodeIdT, ConnectionDataT>,
+    ConnBackwardT: ConnectionsBackward<NodeIdT>,
+    NodeIdT: UnsignedInt,
+    NodeDataT: Clone + Serialize + DeserializeOwned,
+    ConnectionDataT: Clone + Serialize + DeserializeOwned,
+{
+    fn nodes_vector(
+        &self,
+    ) -> &Vec<Option<Node<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>>> {
+        &self.nodes_vector
+    }
+
+    fn empty_slots(&self) -> &Vec<usize> {
+        &self.empty_slots
+    }
+}
+
 #[allow(private_bounds)]
 impl<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
-    VeloxGraph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
+    Graph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
+    for VeloxGraph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>
 where
     ConnForwardT: ConnectionsForward<NodeIdT, ConnectionDataT>,
     ConnBackwardT: ConnectionsBackward<NodeIdT>,
@@ -100,7 +134,7 @@ where
     /// > = VeloxGraph::new();
     /// assert_eq!(graph.num_entries, 0);
     /// ```
-    pub fn new() -> Self {
+    fn new() -> Self {
         let settings = VeloxGraghSettings::new();
 
         Self {
@@ -115,7 +149,7 @@ where
         }
     }
 
-    pub fn num_entries(&self) -> usize {
+    fn num_entries(&self) -> usize {
         self.num_entries
     }
 
@@ -137,7 +171,7 @@ where
     ///
     /// assert_eq!(graph.num_entries, 2);
     /// ```
-    pub fn node_create(&mut self, node_data: NodeDataT) -> usize {
+    fn node_create(&mut self, node_data: NodeDataT) -> usize {
         // let new_node_option = NodeOption {
         //     is_used: SLOT_USED,
         //     node: Node::new(0, node_data),
@@ -190,7 +224,7 @@ where
     ///
     /// assert_eq!(node.data, 9);
     /// ```
-    pub fn node_get<'a>(
+    fn node_get<'a>(
         &'a mut self,
         node_id: usize,
     ) -> Result<
@@ -230,7 +264,7 @@ where
     ///
     /// assert_eq!(graph.num_entries, 0);
     /// ```
-    pub fn node_delete(&mut self, node_id_to_delete: usize) -> Result<(), VeloxGraphError> {
+    fn node_delete(&mut self, node_id_to_delete: usize) -> Result<(), VeloxGraphError> {
         let mut node_to_delete = self.node_get(node_id_to_delete)?.clone();
 
         node_to_delete
@@ -295,7 +329,7 @@ where
     ///
     /// assert_eq!(node0.connections_forward_get_all().data_vec.len(), 1);
     /// ```
-    pub fn nodes_connection_set(
+    fn nodes_connection_set(
         &mut self,
         first_node_id: usize,
         second_node_id: usize,
@@ -343,7 +377,7 @@ where
     ///
     /// assert_eq!(node0.connections_forward_get_all().data_vec.len(), 0);
     /// ```
-    pub fn nodes_connection_remove(
+    fn nodes_connection_remove(
         &mut self,
         first_node_id: usize,
         second_node_id: usize,
@@ -382,7 +416,7 @@ where
     /// // INFO: Save the graph.
     /// graph.save("some_file.vg".to_string()).unwrap();
     /// ```
-    pub fn save(&self, file_path: String) -> Result<(), VeloxGraphError> {
+    fn save(&self, file_path: String) -> Result<(), VeloxGraphError> {
         let file = File::create(file_path)?;
         let mut file = LineWriter::new(file);
 
@@ -424,7 +458,12 @@ where
     /// > = VeloxGraph::load("some_file.vg".to_string()).unwrap();
     /// println!("num_entries {}", graph.num_entries);
     /// ```
-    pub fn load(file_path: String) -> Result<Self, VeloxGraphError> {
+    fn load(
+        file_path: String,
+    ) -> Result<
+        impl Graph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>,
+        VeloxGraphError,
+    > {
         let mut new_graph = Self::new();
 
         let file = File::open(file_path)?;

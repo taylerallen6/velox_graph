@@ -4,6 +4,7 @@ use crate::graph::{VeloxGraph, VeloxGraphHash, VeloxGraphVec};
 use crate::unsigned_int::UnsignedInt;
 use crate::ConnectionsBackward;
 use crate::ConnectionsForward;
+use crate::Graph;
 
 use serde::{Deserialize, Serialize};
 use std::usize;
@@ -16,7 +17,7 @@ struct SomeData {
 
 // INFO: TEST BASIC FUNCTIONALITY.
 #[test]
-fn test_basic_functions_usize_vec() {
+fn test_basic_functions_vec_usize() {
     let graph: VeloxGraphVec<
         usize,    // NodeIdT
         SomeData, // NodeT
@@ -27,7 +28,7 @@ fn test_basic_functions_usize_vec() {
 }
 
 #[test]
-fn test_basic_functions_u16_vec() {
+fn test_basic_functions_vec_u16() {
     let graph: VeloxGraphVec<
         u16,      // NodeIdT
         SomeData, // NodeT
@@ -38,7 +39,7 @@ fn test_basic_functions_u16_vec() {
 }
 
 #[test]
-fn test_basic_functions_usize_hash() {
+fn test_basic_functions_hash_usize() {
     let graph: VeloxGraphHash<
         usize,    // NodeIdT
         SomeData, // NodeT
@@ -49,7 +50,7 @@ fn test_basic_functions_usize_hash() {
 }
 
 #[test]
-fn test_basic_functions_u16_hash() {
+fn test_basic_functions_hash_u16() {
     let graph: VeloxGraphHash<
         u16,      // NodeIdT
         SomeData, // NodeT

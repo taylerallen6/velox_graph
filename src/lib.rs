@@ -163,9 +163,14 @@ pub mod tests;
 
 pub use modules::connection;
 pub use modules::connections_backward::connections_backward_trait::ConnectionsBackward;
+pub use modules::connections_backward::hash_connections_backward::HashConnectionsBackward;
+pub use modules::connections_backward::vec_connections_backward::VecConnectionsBackward;
 pub use modules::connections_forward::connections_forward_trait::ConnectionsForward;
+pub use modules::connections_forward::hash_connections_forward::HashConnectionsForward;
+pub use modules::connections_forward::vec_connections_forward::VecConnectionsForward;
 pub use modules::error;
 pub use modules::graph;
 pub use modules::graph_settings;
+pub use modules::graph_trait::{Graph, GraphInternal};
 pub use modules::node; // WARNING: Do I need this exposed?
 pub use modules::unsigned_int;

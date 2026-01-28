@@ -4,5 +4,6 @@ pub mod connections_forward;
 pub mod error;
 pub mod graph;
 pub mod graph_settings;
+pub mod graph_trait;
 pub mod node;
 pub mod unsigned_int;
