@@ -106,7 +106,7 @@
 //!
 //! Licensed under:
 //!
-//! - [Apache License, Version 2.0](LICENSE-APACHE)
+//! - [Apache License, Version 2.0](https://github.com/taylerallen6/velox_graph/blob/main/LICENSE)
 //!
 //! ## Contact
 //!

@@ -106,7 +106,7 @@ There are a few more in-depth examples [here](https://github.com/taylerallen6/ve
 
 Licensed under:
 
-- [Apache License, Version 2.0](LICENSE-APACHE)
+- [Apache License, Version 2.0](LICENSE)
 
 ## Contact
 
