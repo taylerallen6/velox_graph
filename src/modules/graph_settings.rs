@@ -11,7 +11,7 @@ pub struct VeloxGraghSettings {
 impl VeloxGraghSettings {
     pub(crate) fn new() -> VeloxGraghSettings {
         VeloxGraghSettings {
-            version: String::from("4.0"),
+            version: String::from("5.0.0"),
         }
     }
 }
