@@ -13,7 +13,7 @@ where
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
     pub(crate) node_id: NodeIdT,
-    pub(crate) data: ConnectionDataT,
+    pub data: ConnectionDataT,
 }
 
 impl<NodeIdT, ConnectionDataT> ForwardConnection<NodeIdT, ConnectionDataT>
@@ -27,9 +27,6 @@ where
 
     pub fn node_id(&self) -> usize {
         self.node_id.to_usize()
-    }
-    pub fn data(&mut self) -> &ConnectionDataT {
-        &mut self.data
     }
 }
 

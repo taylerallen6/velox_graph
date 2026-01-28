@@ -125,11 +125,11 @@ where
     ///
     /// ```
     /// // INFO: Initialize the graph.
-    /// let mut graph: VeloxGraph<
+    /// let mut graph: VeloxGraphHash<
     ///     usize,    // NodeIdT: Size for each node id.
     ///     u32,      // NodeDataT
     ///     f64,      // ConnectionDataT
-    /// > = VeloxGraph::new();
+    /// > = VeloxGraphHash::new();
     ///
     /// // INFO: Create example nodes.
     /// let node_id0 = graph.node_create(634);
@@ -142,7 +142,7 @@ where
     /// let node0 = graph.node_get(node_id0).unwrap();
     ///
     /// // INFO: Get a immutable reference to that node's forward connections.
-    /// let forward_connections = node0.connections_forward_get_all();
+    /// let forward_connections = node0.connections_forward();
     ///
     /// // INFO: Get a immutable reference to one connection.
     /// let connection = forward_connections.get(node_id1).unwrap();

@@ -116,10 +116,10 @@ fn test_basic_functions<
     assert_eq!(forwards.data().len(), 2);
     let conn_forward2 = forwards.get(2).unwrap();
     assert_eq!(conn_forward2.node_id(), 2);
-    assert_eq!(*conn_forward2.data(), 53245);
+    assert_eq!(conn_forward2.data, 53245);
     let conn_forward3 = forwards.get(3).unwrap();
     assert_eq!(conn_forward3.node_id(), 3);
-    assert_eq!(*conn_forward3.data(), 24323);
+    assert_eq!(conn_forward3.data, 24323);
 
     // INFO: START: test setting connection twice
     let temp_node_id = node.node_id().clone();
@@ -132,7 +132,7 @@ fn test_basic_functions<
     assert_eq!(forwards.data().len(), 2);
     let conn_forward3 = forwards.get(3).unwrap();
     assert_eq!(conn_forward3.node_id(), 3);
-    assert_eq!(*conn_forward3.data(), 6666);
+    assert_eq!(conn_forward3.data, 6666);
     // INFO: END: test setting connection twice
 
     let node2 = graph.node_get(2).unwrap();
@@ -163,7 +163,7 @@ fn test_basic_functions<
     let node2 = graph.node_get(2).unwrap();
     let forwards = node2.connections_forward();
     assert_eq!(forwards.data().len(), 1);
-    assert_eq!(*forwards.get(0).unwrap().data(), 352);
+    assert_eq!(forwards.get(0).unwrap().data, 352);
 
     graph.nodes_connection_remove(2, 0).unwrap();
     let node2 = graph.node_get(2).unwrap();
@@ -182,7 +182,7 @@ fn test_basic_functions<
     // println!("forwards: {:?}", forwards);
     assert_eq!(forwards.data().len(), 1);
     assert_eq!(forwards.get(3).unwrap().node_id(), 3);
-    assert_eq!(*forwards.get(3).unwrap().data(), 6666);
+    assert_eq!(forwards.get(3).unwrap().data, 6666);
 
     graph.node_delete(0).unwrap();
     assert_eq!(graph.num_entries(), 2);

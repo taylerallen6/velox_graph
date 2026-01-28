@@ -69,7 +69,7 @@ where
     ///
     /// ```
     /// // INFO: Initialize the graph.
-    /// let mut graph: VeloxGraph<usize, usize, u32, f64> = VeloxGraph::new();
+    /// let mut graph: VeloxGraphVec<usize, u32, f64> = VeloxGraphVec::new();
     ///
     /// // INFO: Create example nodes.
     /// let node_id0 = graph.node_create(634);
@@ -97,7 +97,7 @@ where
     ///
     /// ```
     /// // INFO: Initialize the graph.
-    /// let mut graph: VeloxGraph<usize, usize, u32, f64> = VeloxGraph::new();
+    /// let mut graph: VeloxGraphVec<usize, u32, f64> = VeloxGraphVec::new();
     ///
     /// // INFO: Create example nodes.
     /// let node_id0 = graph.node_create(634);
@@ -111,9 +111,13 @@ where
     ///
     /// // INFO: Get a immutable reference to that node's backward connections.
     /// let backward_connections = node1.connections_backward();
-    /// let does_connection_exist = backward_connections.contains(node_id0);
+    /// let backward_connection = backward_connections
+    ///         .data()
+    ///         .iter()
+    ///         .find(|conn| conn.node_id() == node_id0)
+    ///         .unwrap();
     ///
-    /// assert_eq!(does_connection_exist, true);
+    ///     assert_eq!(backward_connection.node_id(), node_id0);
     /// ```
     pub fn connections_backward<'a>(&'a self) -> &'a ConnBackwardT {
         &self.connections_backward

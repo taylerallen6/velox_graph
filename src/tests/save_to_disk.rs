@@ -4,7 +4,7 @@ use crate::graph::{VeloxGraphHash, VeloxGraphVec};
 use crate::unsigned_int::UnsignedInt;
 use crate::ConnectionsBackward;
 use crate::ConnectionsForward;
-use crate::{Graph, GraphInternal};
+use crate::Graph;
 use crate::{HashConnectionsBackward, VecConnectionsBackward};
 use crate::{HashConnectionsForward, VecConnectionsForward};
 

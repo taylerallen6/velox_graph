@@ -21,7 +21,33 @@ use std::io::{LineWriter, Write};
 use std::marker::PhantomData;
 use std::os::unix::prelude::FileExt;
 
-// Now alias the concrete Container specializations.
+/// Initialize the graph.
+///
+/// # Example
+///
+/// ```
+/// // INFO: Sample data to store in the nodes. This is CUSTOM DATA defined by you that is stored in each node.
+/// #[derive(Clone, Debug, Serialize, Deserialize)]
+/// struct NodeData {
+///     x: u32,
+///     y: u32,
+/// }
+///
+/// // INFO: Sample data to store in the connections. This is CUSTOM DATA defined by you that is stored in each connection.
+/// #[derive(Clone, Debug, Serialize, Deserialize)]
+/// struct ConnData {
+///     a: u32,
+///     b: f64,
+/// }
+///
+/// // INFO: Initialize the graph with types NodeData, for nodes, and ConnData, for connections.
+/// let mut graph: VeloxGraphVec<
+///     usize,      // NodeIdT: Size for each node id.
+///     NodeData,   // NodeDataT
+///     ConnData,   // ConnectionDataT
+/// > = VeloxGraphVec::new();
+/// assert_eq!(graph.num_entries() 0);
+/// ```
 pub type VeloxGraphVec<NodeIdT, NodeDataT, ConnectionDataT> = VeloxGraph<
     NodeIdT,
     VecConnectionsForward<NodeIdT, ConnectionDataT>,
@@ -30,6 +56,33 @@ pub type VeloxGraphVec<NodeIdT, NodeDataT, ConnectionDataT> = VeloxGraph<
     ConnectionDataT,
 >;
 
+/// Initialize the graph.
+///
+/// # Example
+///
+/// ```
+/// // INFO: Sample data to store in the nodes. This is CUSTOM DATA defined by you that is stored in each node.
+/// #[derive(Clone, Debug, Serialize, Deserialize)]
+/// struct NodeData {
+///     x: u32,
+///     y: u32,
+/// }
+///
+/// // INFO: Sample data to store in the connections. This is CUSTOM DATA defined by you that is stored in each connection.
+/// #[derive(Clone, Debug, Serialize, Deserialize)]
+/// struct ConnData {
+///     a: u32,
+///     b: f64,
+/// }
+///
+/// // INFO: Initialize the graph with types NodeData, for nodes, and ConnData, for connections.
+/// let mut graph: VeloxGraphHash<
+///     usize,      // NodeIdT: Size for each node id.
+///     NodeData,   // NodeDataT
+///     ConnData,   // ConnectionDataT
+/// > = VeloxGraphHash::new();
+/// assert_eq!(graph.num_entries() 0);
+/// ```
 pub type VeloxGraphHash<NodeIdT, NodeDataT, ConnectionDataT> = VeloxGraph<
     NodeIdT,
     HashConnectionsForward<NodeIdT, ConnectionDataT>,
@@ -107,6 +160,10 @@ where
     NodeDataT: Clone + Serialize + DeserializeOwned,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
+    fn num_entries(&self) -> usize {
+        self.num_entries
+    }
+
     /// Initialize the graph.
     ///
     /// # Example
@@ -129,10 +186,12 @@ where
     /// // INFO: Initialize the graph with types NodeData, for nodes, and ConnData, for connections.
     /// let mut graph: VeloxGraph<
     ///     usize,      // NodeIdT: Size for each node id.
+    ///     VecConnectionsForward<usize, ConnData>,  // connections forward type (vec/hash)
+    ///     VecConnectionsBackward<usize>,           // connections backward type (vec/hash)
     ///     NodeData,   // NodeDataT
     ///     ConnData,   // ConnectionDataT
     /// > = VeloxGraph::new();
-    /// assert_eq!(graph.num_entries, 0);
+    /// assert_eq!(graph.num_entries(), 0);
     /// ```
     fn new() -> Self {
         let settings = VeloxGraghSettings::new();
@@ -149,10 +208,6 @@ where
         }
     }
 
-    fn num_entries(&self) -> usize {
-        self.num_entries
-    }
-
     /// Create nodes.
     ///
     /// # Example
@@ -160,16 +215,18 @@ where
     /// ```
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
-    ///     usize,    // NodeIdT: Size for each node id.
-    ///     u32,      // NodeDataT
-    ///     f64,      // ConnectionDataT
+    ///     usize,      // NodeIdT: Size for each node id.
+    ///     VecConnectionsForward<usize, f64>,  // connections forward type (vec/hash)
+    ///     VecConnectionsBackward<usize>,      // connections backward type (vec/hash)
+    ///     u32,        // NodeDataT
+    ///     f64,        // ConnectionDataT
     /// > = VeloxGraph::new();
     ///
     /// // INFO: Create your first nodes.
     /// let node_id0 = graph.node_create(634);
     /// let node_id1 = graph.node_create(43);
     ///
-    /// assert_eq!(graph.num_entries, 2);
+    /// assert_eq!(graph.num_entries() 2);
     /// ```
     fn node_create(&mut self, node_data: NodeDataT) -> usize {
         // let new_node_option = NodeOption {
@@ -206,9 +263,11 @@ where
     /// ```
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
-    ///     usize,    // NodeIdT: Size for each node id.
-    ///     u32,      // NodeDataT
-    ///     f64,      // ConnectionDataT
+    ///     usize,      // NodeIdT: Size for each node id.
+    ///     VecConnectionsForward<usize, f64>,  // connections forward type (vec/hash)
+    ///     VecConnectionsBackward<usize>,      // connections backward type (vec/hash)
+    ///     u32,        // NodeDataT
+    ///     f64,        // ConnectionDataT
     /// > = VeloxGraph::new();
     ///
     /// // INFO: Create a node.
@@ -251,18 +310,20 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
+    ///     VecConnectionsForward<usize, f64>,  // connections forward type (vec/hash)
+    ///     VecConnectionsBackward<usize>,      // connections backward type (vec/hash)
     ///     u32,      // NodeDataT
     ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
     ///
     /// // INFO: Create a node.
     /// let node_id = graph.node_create(634);
-    /// assert_eq!(graph.num_entries, 1);
+    /// assert_eq!(graph.num_entries() 1);
     ///
     /// // INFO: Delete the node. Its connections are automatically deleted as well.
     /// graph.node_delete(node_id).unwrap();
     ///
-    /// assert_eq!(graph.num_entries, 0);
+    /// assert_eq!(graph.num_entries() 0);
     /// ```
     fn node_delete(&mut self, node_id_to_delete: usize) -> Result<(), VeloxGraphError> {
         let mut node_to_delete = self.node_get(node_id_to_delete)?.clone();
@@ -313,6 +374,8 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
+    ///     VecConnectionsForward<usize, f64>,  // connections forward type (vec/hash)
+    ///     VecConnectionsBackward<usize>,      // connections backward type (vec/hash)
     ///     u32,      // NodeDataT
     ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
@@ -327,7 +390,7 @@ where
     /// // INFO: Get a mutable reference to that node.
     /// let node0 = graph.node_get(node_id0).unwrap();
     ///
-    /// assert_eq!(node0.connections_forward_get_all().data_vec.len(), 1);
+    /// assert_eq!(node0.connections_forward().data().len(), 1);
     /// ```
     fn nodes_connection_set(
         &mut self,
@@ -357,6 +420,8 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
+    ///     VecConnectionsForward<usize, f64>,  // connections forward type (vec/hash)
+    ///     VecConnectionsBackward<usize>,      // connections backward type (vec/hash)
     ///     u32,      // NodeDataT
     ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
@@ -370,12 +435,12 @@ where
     ///
     /// // INFO: Get a mutable reference to that node.
     /// let node0 = graph.node_get(node_id0).unwrap();
-    /// assert_eq!(node0.connections_forward_get_all().data_vec.len(), 1);
+    /// assert_eq!(node0.connections_forward().data().len(), 1);
     ///
     /// // INFO: Delete node connection.
     /// graph.nodes_connection_remove(node_id0, node_id1).unwrap();
     ///
-    /// assert_eq!(node0.connections_forward_get_all().data_vec.len(), 0);
+    /// assert_eq!(node0.connections_forward().data().len(), 0);
     /// ```
     fn nodes_connection_remove(
         &mut self,
@@ -402,6 +467,8 @@ where
     /// // INFO: Initialize the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
+    ///     VecConnectionsForward<usize, f64>,  // connections forward type (vec/hash)
+    ///     VecConnectionsBackward<usize>,      // connections backward type (vec/hash)
     ///     u32,      // NodeDataT
     ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::new();
@@ -453,17 +520,14 @@ where
     /// // INFO: Load the graph.
     /// let mut graph: VeloxGraph<
     ///     usize,    // NodeIdT: Size for each node id.
+    ///     VecConnectionsForward<usize, f64>,  // connections forward type (vec/hash)
+    ///     VecConnectionsBackward<usize>,      // connections backward type (vec/hash)
     ///     u32,      // NodeDataT
     ///     f64,      // ConnectionDataT
     /// > = VeloxGraph::load("some_file.vg".to_string()).unwrap();
-    /// println!("num_entries {}", graph.num_entries);
+    /// println!("num_entries {}", graph.num_entries());
     /// ```
-    fn load(
-        file_path: String,
-    ) -> Result<
-        impl Graph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>,
-        VeloxGraphError,
-    > {
+    fn load(file_path: String) -> Result<Self, VeloxGraphError> {
         let mut new_graph = Self::new();
 
         let file = File::open(file_path)?;

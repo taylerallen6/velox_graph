@@ -34,8 +34,8 @@ where
     NodeDataT: Clone + Serialize + DeserializeOwned,
     ConnectionDataT: Clone + Serialize + DeserializeOwned,
 {
-    fn new() -> Self;
     fn num_entries(&self) -> usize;
+    fn new() -> Self;
     fn node_create(&mut self, node_data: NodeDataT) -> usize;
     fn node_get<'a>(
         &'a mut self,
@@ -57,10 +57,5 @@ where
         second_node_id: usize,
     ) -> Result<(), VeloxGraphError>;
     fn save(&self, file_path: String) -> Result<(), VeloxGraphError>;
-    fn load(
-        file_path: String,
-    ) -> Result<
-        impl Graph<NodeIdT, ConnForwardT, ConnBackwardT, NodeDataT, ConnectionDataT>,
-        VeloxGraphError,
-    >;
+    fn load(file_path: String) -> Result<Self, VeloxGraphError>;
 }
